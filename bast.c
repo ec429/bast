@@ -95,7 +95,7 @@ int addinbas(int *ninbas, char ***inbas, char *arg);
 int addbasline(int *nlines, basline **basic, char *line);
 segment *addsegment(int *nsegs, segment **data);
 void basfree(basline b);
-void tokenise(basline *b, char **inbas, int fbas);
+void tokenise(basline *b, char **inbas, int fbas, int renum);
 token gettoken(char *data, int *bt);
 void zxfloat(char *buf, double value);
 bool isvalidlabel(char *text);
@@ -349,7 +349,7 @@ int main(int argc, char *argv[])
 				{
 					err=false;
 					fprintf(stderr, "bast: tokenising line %s\n", data[i].data.bas.basic[j].text);
-					tokenise(&data[i].data.bas.basic[j], inbas, i);
+					tokenise(&data[i].data.bas.basic[j], inbas, i, data[i].data.bas.renum);
 					if(data[i].data.bas.basic[j].ntok) data[i].data.bas.blines++;
 					if(err) return(EXIT_FAILURE);
 				}
@@ -758,7 +758,7 @@ void basfree(basline b)
 	if(b.tok) free(b.tok);
 }
 
-void tokenise(basline *b, char **inbas, int fbas)
+void tokenise(basline *b, char **inbas, int fbas, int renum)
 {
 	if(b)
 	{
@@ -770,21 +770,63 @@ void tokenise(basline *b, char **inbas, int fbas)
 		if(b->text && !strchr("#.\n", *b->text))
 		{
 			char *ptr=b->text;
-			int tl=0;
-			int l=0,i;
-			char *curtok=NULL;
-			while(*ptr)
+			if(!renum)
 			{
-				while((*ptr==' ')||(*ptr=='\t'))
-					ptr++;
-				if(!*ptr)
-					break;
-				tl=0;
-				init_char(&curtok, &l, &i);
-				while(ptr[tl])
+				char *p=strchr(ptr, ' ');
+				if(p)
 				{
-					append_char(&curtok, &l, &i, ptr[tl++]);
-					fprintf(stderr, "gettoken(%s)", curtok);
+					sscanf(ptr, "%u", &b->number);
+					ptr=p+1;
+				}
+			}
+			if(!(renum||b->number))
+			{
+				fprintf(stderr, "bast: Missing line-number\n\t"LOC"\n", LOCARG);
+				err=true;
+			}
+			else
+			{
+				int tl=0;
+				int l=0,i;
+				char *curtok=NULL;
+				while(*ptr)
+				{
+					while((*ptr==' ')||(*ptr=='\t'))
+						ptr++;
+					if(!*ptr)
+						break;
+					tl=0;
+					init_char(&curtok, &l, &i);
+					while(ptr[tl])
+					{
+						append_char(&curtok, &l, &i, ptr[tl++]);
+						fprintf(stderr, "gettoken(%s)", curtok);
+						token dat=gettoken(curtok, &bt);
+						fprintf(stderr, "\t= %02X\n", dat.tok);
+						if(dat.tok) // token is recognised?
+						{
+							b->ntok++;
+							b->tok=(token *)realloc(b->tok, b->ntok*sizeof(token));
+							b->tok[b->ntok-1]=dat;
+							ptr+=tl-bt;
+							tl=0;
+							if(curtok) free(curtok);
+							curtok=NULL;
+							if(dat.tok==0xEA) // REM token; eat the rest of the line (as token.data)
+							{
+								b->tok[b->ntok-1].data=strdup(ptr);
+								ptr+=strlen(ptr);
+							}
+							break;
+						}
+					}
+					if(!ptr[tl])
+						break;
+				}
+				if(tl)
+				{
+					fprintf(stderr, "gettoken(%s\\n)", curtok);
+					append_char(&curtok, &l, &i, '\n');
 					token dat=gettoken(curtok, &bt);
 					fprintf(stderr, "\t= %02X\n", dat.tok);
 					if(dat.tok) // token is recognised?
@@ -792,40 +834,15 @@ void tokenise(basline *b, char **inbas, int fbas)
 						b->ntok++;
 						b->tok=(token *)realloc(b->tok, b->ntok*sizeof(token));
 						b->tok[b->ntok-1]=dat;
-						ptr+=tl-bt;
-						tl=0;
-						if(curtok) free(curtok);
-						curtok=NULL;
-						if(dat.tok==0xEA) // REM token; eat the rest of the line (as token.data)
-						{
-							b->tok[b->ntok-1].data=strdup(ptr);
-							ptr+=strlen(ptr);
-						}
-						break;
+					}
+					else
+					{
+						fprintf(stderr, "bast: Failed to tokenise '%s'\n\t"LOC"\n", ptr, LOCARG);
+						err=true;
 					}
 				}
-				if(!ptr[tl])
-					break;
+				if(curtok) free(curtok);
 			}
-			if(tl)
-			{
-				fprintf(stderr, "gettoken(%s\\n)", curtok);
-				append_char(&curtok, &l, &i, '\n');
-				token dat=gettoken(curtok, &bt);
-				fprintf(stderr, "\t= %02X\n", dat.tok);
-				if(dat.tok) // token is recognised?
-				{
-					b->ntok++;
-					b->tok=(token *)realloc(b->tok, b->ntok*sizeof(token));
-					b->tok[b->ntok-1]=dat;
-				}
-				else
-				{
-					fprintf(stderr, "bast: Failed to tokenise '%s'\n\t"LOC"\n", ptr, LOCARG);
-					err=true;
-				}
-			}
-			if(curtok) free(curtok);
 		}
 	}
 }
