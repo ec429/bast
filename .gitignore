@@ -2,5 +2,6 @@ bast
 x-tok
 *.o
 version
+version.h
 *~
 *.tap
