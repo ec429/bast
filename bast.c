@@ -899,7 +899,7 @@ token gettoken(char *data, int *bt)
 	{
 		if(data[strlen(tokentable[i].text)] && !strncasecmp(data, tokentable[i].text, strlen(tokentable[i].text)))
 		{
-			if((tokentable[i].tok&0x80)&&(!strchr(" ([", data[strlen(tokentable[i].text)])))
+			if((tokentable[i].tok&0x80)&&(!strchr(" ([\t\n", data[strlen(tokentable[i].text)])))
 				continue;
 			rv.tok=tokentable[i].tok;
 			*bt=strlen(data+strlen(tokentable[i].text));
