@@ -814,6 +814,8 @@ void tokenise(basline *b, char **inbas, int fbas, int renum)
 							curtok=NULL;
 							if(dat.tok==0xEA) // REM token; eat the rest of the line (as token.data)
 							{
+								while(isspace(*ptr))
+									ptr++;
 								b->tok[b->ntok-1].data=strdup(ptr);
 								ptr+=strlen(ptr);
 							}
@@ -1004,7 +1006,11 @@ void buildbas(int *dbl, char **dblock, bas_seg bas)
 			for(j=0;j<bas.basic[i].ntok;j++)
 			{
 				if(bas.basic[i].tok[j].tok&0x80) // Keyword (or other high-bank token), pass thru untouched
+				{
 					append_char(&line, &ll, &li, bas.basic[i].tok[j].tok);
+					if(bas.basic[i].tok[j].tok==0xEA) // REM token, rest-of-line in token.data
+						append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+				}
 				else
 				{
 					int k;
