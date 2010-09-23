@@ -942,7 +942,7 @@ token gettoken(char *data, int *bt)
 
 void zxfloat(char *buf, double value)
 {
-	if((labs(value-floor(value+0.5))<1e-12) && (fabs(value)<65535.5))
+	if((fabs(value-floor(value+0.5))<1e-12) && (fabs(value)<65535.5))
 	{
 		int i=floor(value+0.5);
 		// "small integer"
@@ -960,11 +960,11 @@ void zxfloat(char *buf, double value)
 		int ex=1+floor(log(fabs(value))/M_LN2);
 		double mant=fabs(value)*exp(-ex*M_LN2);
 		long mantissa=floor(mant*exp(32*M_LN2)+0.5);
-		buf[0]=((mantissa>>24)&0x7F)|((value<0)?0x80:0);
-		buf[1]=mantissa>>16;
-		buf[2]=mantissa>>8;
-		buf[3]=mantissa;
-		buf[4]=ex+128;
+		buf[0]=ex+128;
+		buf[1]=((mantissa>>24)&0x7F)|((value<0)?0x80:0);
+		buf[2]=mantissa>>16;
+		buf[3]=mantissa>>8;
+		buf[4]=mantissa;
 	}
 }
 
