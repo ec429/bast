@@ -22,6 +22,9 @@
  There is NO WARRANTY, to the extent permitted by law.\n\
  Compiler was %s\n", "bast", VERSION_MAJ, VERSION_MIN, VERSION_REV, VERSION_TXT[0]?"-":"", VERSION_TXT, CC_VERSION
 
+#define max(a,b)	((a)>(b)?(a):(b))
+#define min(a,b)	((a)>(b)?(b):(a))
+
 typedef struct
 {
 	int sline; // source linenumber (for diagnostics)
@@ -87,6 +90,7 @@ bool err=false;
 char * fgetl(FILE *fp);
 void init_char(char **buf, int *l, int *i);
 void append_char(char **buf, int *l, int *i, char c);
+void append_str(char **buf, int *l, int *i, char *str);
 int addinbas(int *ninbas, char ***inbas, char *arg);
 int addbasline(int *nlines, basline **basic, char *line);
 segment *addsegment(int *nsegs, segment **data);
@@ -96,6 +100,7 @@ token gettoken(char *data);
 void zxfloat(char *buf, double value);
 bool isvalidlabel(char *text);
 void addlabel(int *nlabels, label **labels, label lbl);
+void buildbas(int *dbl, char **dblock, bas_seg bas);
 
 int main(int argc, char *argv[])
 {
@@ -346,7 +351,7 @@ int main(int argc, char *argv[])
 	/* END: TOKENISE BASIC SEGMENTS */
 	
 	/* LINKER & LABELS */
-	// TODO PASS 1: Find labels, renumber labelled BASIC sources
+	// PASS 1: Find labels, renumber labelled BASIC sources
 	int nlabels=0;
 	label * labels=NULL;
 	int i;
@@ -416,17 +421,41 @@ int main(int argc, char *argv[])
 				if(num) data[i].data.bas.renum=2;
 			break;
 			default:
-				fprintf(stderr, "bast: Linker: Bad segment-type %u\n", data[i].type);
+				fprintf(stderr, "bast: Linker: Internal error: Bad segment-type %u\n", data[i].type);
 				return(EXIT_FAILURE);
 			break;
 		}
 	}
+	// PASS 2: Replace labels with the linenumbers/addresses to which they point
 	for(i=0;i<nsegs;i++)
 	{
 		fprintf(stderr, "bast: Linker (Pass 2): %s\n", data[i].name);
 		switch(data[i].type)
 		{
-			case BASIC:;
+			case BASIC:
+				if(data[i].data.bas.line<0)
+				{
+					if(!data[i].data.bas.lline)
+					{
+						fprintf(stderr, "bast: Linker: Internal error: line<0 but lline=NULL, %s\n", data[i].name);
+						return(EXIT_FAILURE);
+					}
+					int l;
+					for(l=0;l<nlabels;l++)
+					{
+						// TODO limit label scope to this file & the files it has #imported
+						if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.lline, labels[l].text)==0))
+						{
+							data[i].data.bas.line=labels[l].ptr.line;
+							break;
+						}
+					}
+					if(l==nlabels)
+					{
+						fprintf(stderr, "bast: Linker: Undefined label %s\n\t%s:#pragma line\n", data[i].data.bas.lline, data[i].name);
+						return(EXIT_FAILURE);
+					}
+				}
 				int j;
 				for(j=0;j<data[i].data.bas.nlines;j++)
 				{
@@ -442,24 +471,24 @@ int main(int argc, char *argv[])
 								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
 								{
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
-									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(16);
+									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
 									sprintf(data[i].data.bas.basic[j].tok[k].data, "%u", labels[l].ptr.line);
-									size_t s=strlen(data[i].data.bas.basic[j].tok[k].data);
-									data[i].data.bas.basic[j].tok[k].data[s]=TOKEN_ZXFLOAT;
-									zxfloat(data[i].data.bas.basic[j].tok[k].data+s+1, labels[l].ptr.line);
+									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
+									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].ptr.line);
 									break;
 								}
 							}
 							if(l==nlabels)
 							{
 								fprintf(stderr, "bast: Linker: Undefined label %s\n\t"LOC"\n", data[i].data.bas.basic[j].tok[k].data, data[i].name, j);
+								return(EXIT_FAILURE);
 							}
 						}
 					}
 				}
 			break;
 			default:
-				fprintf(stderr, "bast: Linker: Bad segment-type %u\n", data[i].type);
+				fprintf(stderr, "bast: Linker: Internal error: Bad segment-type %u\n", data[i].type);
 				return(EXIT_FAILURE);
 			break;
 		}
@@ -467,7 +496,103 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "bast: Linker passed all segments\n");
 	/* END: LINKER & LABELS */
 	
-	/* TODO: CREATE OUTPUT */
+	/* CREATE OUTPUT */
+	switch(outtype)
+	{
+		case TAPE:
+			fprintf(stderr, "bast: Creating TAPE output\n");
+			if(nsegs)
+			{
+				FILE *fout=fopen(outfile, "wb");
+				if(!fout)
+				{
+					fprintf(stderr, "bast: Could not open output file %s for writing!\n", outfile);
+					return(EXIT_FAILURE);
+				}
+				int i;
+				for(i=0;i<nsegs;i++)
+				{
+					// write header
+					fputc(0x13, fout);
+					fputc(0x00, fout);
+					unsigned char cksum=0;
+					int dbl;
+					char *dblock;
+					fputc(0x00, fout); // HEADER
+					switch(data[i].type)
+					{
+						case BASIC:
+							fputc(0, fout);
+							char name[10];
+							memset(name, ' ', 10);
+							memcpy(name, data[i].name, min(10, strlen(data[i].name)));
+							int j;
+							for(j=0;j<10;j++)
+							{
+								fputc(name[j], fout);
+								cksum^=name[j];
+							}
+							buildbas(&dbl, &dblock, data[i].data.bas);
+							if(dbl==-1)
+							{
+								fprintf(stderr, "bast: TAPE: Failed to create BASIC segment %s\n", data[i].name);
+								return(EXIT_FAILURE);
+							}
+							fputc(dbl, fout);
+							cksum^=dbl&0xFF;
+							fputc(dbl>>8, fout);
+							cksum^=dbl>>8;
+							if(data[i].data.bas.line) // Parameter 1 = autostart line
+							{
+								fputc(data[i].data.bas.line, fout);
+								cksum^=data[i].data.bas.line&0xFF;
+								fputc(data[i].data.bas.line>>8, fout);
+								cksum^=data[i].data.bas.line>>8;
+							}
+							else // Parameter 1 = 0xFFFF
+							{
+								fputc(0xFF, fout);
+								fputc(0xFF, fout);
+							}
+							// Parameter 2 = dbl
+							fputc(dbl, fout);
+							cksum^=dbl&0xFF;
+							fputc(dbl>>8, fout);
+							cksum^=dbl>>8;
+							fputc(cksum, fout);
+						break;
+						default:
+							fprintf(stderr, "bast: Internal error: Don't know how to make TAPE output of segment type %u\n", data[i].type);
+							return(EXIT_FAILURE);
+						break;
+					}
+					// write data block
+					fputc(dbl, fout);
+					fputc(dbl>>8, fout);
+					fputc(0xFF, fout); // DATA
+					cksum=0xFF;
+					int j;
+					for(j=0;j<dbl;j++)
+					{
+						fputc(dblock[j], fout);
+						cksum^=dblock[j];
+					}
+					fputc(cksum, fout);
+					free(dblock);
+				}
+			}
+			else
+			{
+				fprintf(stderr, "bast: There are no segments to write!\n");
+				return(EXIT_FAILURE);
+			}
+		break;
+		default:
+			fprintf(stderr, "bast: Internal error: Bad output type %u\n", outtype);
+			return(EXIT_FAILURE);
+		break;
+	}
+	/* END: CREATE OUTPUT */
 	
 	return(EXIT_SUCCESS);
 }
@@ -493,44 +618,49 @@ char * fgetl(FILE *fp)
 	return(lout);
 }
 
-void append_char(char **buf, int *l, int *i, char c)
-{
-	if(!((c==0)||(c==EOF)))
-	{
-		if(*buf)
-		{
-			(*buf)[(*i)++]=c;
-			char *nbuf=*buf;
-			if((*i)>=(*l))
-			{
-				*l=*i*2;
-				nbuf=(char *)realloc(*buf, *l);
-			}
-			if(nbuf)
-			{
-				*buf=nbuf;
-				(*buf)[*i]=0;
-			}
-			else
-			{
-				free(*buf);
-				init_char(buf, l, i);
-			}
-		}
-		else
-		{
-			init_char(buf, l, i);
-			append_char(buf, l, i, c);
-		}
-	}
-}
-
 void init_char(char **buf, int *l, int *i)
 {
 	*l=80;
 	*buf=(char *)malloc(*l);
 	(*buf)[0]=0;
 	*i=0;
+}
+
+void append_char(char **buf, int *l, int *i, char c)
+{
+	if(*buf)
+	{
+		(*buf)[(*i)++]=c;
+		char *nbuf=*buf;
+		if((*i)>=(*l))
+		{
+			*l=*i*2;
+			nbuf=(char *)realloc(*buf, *l);
+		}
+		if(nbuf)
+		{
+			*buf=nbuf;
+			(*buf)[*i]=0;
+		}
+		else
+		{
+			free(*buf);
+			init_char(buf, l, i);
+		}
+	}
+	else
+	{
+		init_char(buf, l, i);
+		append_char(buf, l, i, c);
+	}
+}
+
+void append_str(char **buf, int *l, int *i, char *str)
+{
+	while(*str) // not the most tremendously efficient implementation, but conceptually simple at least
+	{
+		append_char(buf, l, i, *str++);
+	}
 }
 
 int addinbas(int *ninbas, char ***inbas, char *arg)
@@ -699,12 +829,13 @@ token gettoken(char *data)
 	double num=strtod(data, &endptr);
 	if(strchr(" \t\n", *endptr))
 	{
-		// 0x0E		ZX floating point number (full representation in token.data is (decimal)\0x0E(ZXfloat[5])
+		// 0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
 		rv.tok=TOKEN_ZXFLOAT;
-		rv.data=(char *)malloc(endptr-data+6);
+		rv.data=(char *)malloc(endptr-data+1);
 		strncpy(rv.data, data, endptr-data);
-		rv.data[endptr-data]=TOKEN_ZXFLOAT;
-		zxfloat(rv.data+1+(endptr-data), num);
+		rv.data[endptr-data]=0;
+		rv.data2=(char *)malloc(5);
+		zxfloat(rv.data2, num);
 	}
 	// TODO: HEX, OCT
 	if(strchr(" \t\n", data[strlen(data)-1]))
@@ -791,4 +922,78 @@ void addlabel(int *nlabels, label **labels, label lbl)
 		*labels=ll;
 		ll[nl-1]=lbl;
 	}
+}
+
+void buildbas(int *dbl, char **dblock, bas_seg bas)
+{
+	int dbi;
+	init_char(dblock, dbl, &dbi);
+	int i;
+	for(i=0;i<bas.nlines;i++)
+	{
+		if(bas.basic[i].ntok)
+		{
+			append_char(dblock, dbl, &dbi, bas.basic[i].number>>8); // MSB first!!!!
+			append_char(dblock, dbl, &dbi, bas.basic[i].number);
+			char *line;
+			int li,ll;
+			init_char(&line, &ll, &li);
+			int j;
+			for(j=0;j<bas.basic[i].ntok;j++)
+			{
+				if(bas.basic[i].tok[j].tok&0x80) // Keyword (or other high-bank token), pass thru untouched
+					append_char(&line, &ll, &li, bas.basic[i].tok[j].tok);
+				else
+				{
+					int k;
+					for(k=0;k<ntokens;k++)
+					{
+						char data[2]={bas.basic[i].tok[j].tok, 0};
+						if(strcasecmp(data, tokentable[k].text)==0)
+						{
+							append_char(&line, &ll, &li, bas.basic[i].tok[j].tok);
+							break;
+						}
+					}
+					if(k==ntokens)
+					{
+						switch(bas.basic[i].tok[j].tok)
+						{
+							case TOKEN_VAR:
+								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+							break;
+							case TOKEN_VARSTR:
+								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+								append_char(&line, &ll, &li, '$');
+							break;
+							case TOKEN_ZXFLOAT:
+								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+								append_char(&line, &ll, &li, TOKEN_ZXFLOAT);
+								int l;
+								for(l=0;l<5;l++)
+									append_char(&line, &ll, &li, bas.basic[i].tok[j].data2[l]);
+							break;
+							case TOKEN_STRING:
+								append_char(&line, &ll, &li, '"');
+								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+								append_char(&line, &ll, &li, '"');
+							break;
+							default:
+								fprintf(stderr, "bast: buildbas: Internal error: Bad token %02X\n", bas.basic[i].tok[j].tok);
+								*dbl=-1;
+								goto exit;
+							break;
+						}
+					}
+				}
+			}
+			append_char(&line, &ll, &li, 0x0D); // 0x0D is ENTER in ZX charset
+			append_char(dblock, dbl, &dbi, li);
+			append_char(dblock, dbl, &dbi, li>>8);
+			for(j=0;j<li;j++)
+				append_char(dblock, dbl, &dbi, line[j]);
+			free(line);
+		}
+	}
+	exit:;
 }

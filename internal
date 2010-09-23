@@ -1,10 +1,9 @@
 INTERNAL REPRESENTATIONS
 
 Tokenisation (token.tok)
-	0x01		Variable: Unknown type (name in token.data)
+	0x01		Variable: Number (name in token.data)
 	0x02		Variable: String (name in token.data)
-	0x03		Variable: Number (name in token.data)
-	0x0E		ZX floating point number (full representation in token.data is (decimal)\0x0E(ZXfloat[5])
+	0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
 	0x0F		String (contents in token.data)
 	0x25	(%)	Pointer to label (name of label in token.data)
 	0xA3-0xFF	ZX Basic multi-character tokens (from x-tok | mkaddtokens.awk)
