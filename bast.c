@@ -907,19 +907,22 @@ token gettoken(char *data, int *bt)
 		return(rv);
 	}
 	// TODO: HEX, OCT
-	int i;
+	int i,j=-1;
 	for(i=0;i<ntokens;i++)
 	{
-		if(data[strlen(tokentable[i].text)] && !strncasecmp(data, tokentable[i].text, strlen(tokentable[i].text)))
+		if(strncasecmp(data, tokentable[i].text, strlen(tokentable[i].text))==0)
 		{
-			if(isalpha(*data)&&(!strchr(" (:+-*/^\t\n", data[strlen(tokentable[i].text)])))
-				continue;
-			if(strchr("<>=", tokentable[i].tok)&&strchr("<>=", data[strlen(tokentable[i].text)]))
-				continue;
-			rv.tok=tokentable[i].tok;
-			*bt=strlen(data+strlen(tokentable[i].text));
-			return(rv);
+			if(j==-1)
+				j=i;
+			else
+				break;
 		}
+	}
+	if((i==ntokens) && (j!=-1))
+	{
+		rv.tok=tokentable[j].tok;
+		*bt=strlen(data+strlen(tokentable[j].text));
+		return(rv);
 	}
 	if((!isalpha(data[strlen(data)-1])) && (strcasecmp(data, "GO "))) // "GO " is the start of GO TO or GO SUB; you can't have a variable called 'go'.
 	{
