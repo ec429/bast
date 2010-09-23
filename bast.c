@@ -783,6 +783,8 @@ void tokenise(basline *b, char **inbas, int fbas, int renum)
 			char *ptr=b->text;
 			if(!renum)
 			{
+				while(isspace(*ptr))
+					ptr++;
 				char *p=strchr(ptr, ' ');
 				if(p)
 				{
@@ -910,7 +912,7 @@ token gettoken(char *data, int *bt)
 	int i,j=-1;
 	for(i=0;i<ntokens;i++)
 	{
-		if(strncasecmp(data, tokentable[i].text, strlen(tokentable[i].text))==0)
+		if(strncasecmp(data, tokentable[i].text, min(max(strlen(tokentable[i].text), strlen(data)-1), strlen(data)))==0)
 		{
 			if(j==-1)
 				j=i;
@@ -920,9 +922,12 @@ token gettoken(char *data, int *bt)
 	}
 	if((i==ntokens) && (j!=-1))
 	{
-		rv.tok=tokentable[j].tok;
-		*bt=strlen(data+strlen(tokentable[j].text));
-		return(rv);
+		if(strlen(data)>=strlen(tokentable[j].text))
+		{
+			rv.tok=tokentable[j].tok;
+			*bt=strlen(data+strlen(tokentable[j].text));
+			return(rv);
+		}
 	}
 	if((!isalpha(data[strlen(data)-1])) && (strcasecmp(data, "GO "))) // "GO " is the start of GO TO or GO SUB; you can't have a variable called 'go'.
 	{
