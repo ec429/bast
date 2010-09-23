@@ -29,7 +29,7 @@ SOURCE FILE DIRECTIVES (BAS)
 #pragma <pr> [<args>]	#pragma directives must precede all other directives and all source lines; only blank lines may precede a #pragma
 #pragma name <name>		If eg. TAP output is produced, <name> will be used as the Name of the segment resulting from this file
 #pragma line <line>		If eg. TAP output is produced, this file will be stored as though saved with 'SAVE "<name>" LINE <line>' (i.e., <line> is the autorun)
-#pragma renum			This file is not numbered (only labelled) and should be auto-numbered.  Labels and numbers may not be mixed in a single source file; it is /advised/ that you do not mix them at all (otherwise, the compiler may struggle to fit the labelled files in the gaps in the numbering)
+#pragma renum			This file is not numbered (only labelled) and should be auto-numbered.  #pragma renum and line-numbers may not be mixed in a single source file: if you are going to auto-number, don't hardcode numbers in eg. GOTOs as these will NOT be updated
 #include <incfile>		Includes the contents of <incfile> (another Basic file, found by searching the include path) at the location of the #include
 #link <linkobj>			If eg. TAP output is produced, compile in <linkobj> (a machine code object file, found by searching the link path)
 #asm		#endasm		Delimits a block of Z80 assembler, which will become a BINARY segment as though it had been linked.  The #asm block may contain its own directives which will be treated as though the #asm block had appeared in its own file (eg. it may have #pragmas at the start)
@@ -37,8 +37,8 @@ SOURCE FILE DIRECTIVES (BAS)
 <num> #rasm				As #asm but compiles into a BASIC REM statement instead of a BINARY segment.  The code within should be relocatable.  <num> is the linenumber (technically #rasm is a statement).  If the binary has a Name (eg. from #pragma name), it is ignored
 
 OTHER SOURCE FILE NON-BASIC ENTITIES
-.<label>				A label (may only occur in a labelled source file, ie. not a numbered one).  <label> must match "[[:alpha:]][[:alnum:]_]*"; that is, it must start with a letter (either case) and consist of letters, underscores and numbers only.  Labels must occur at the start of line; that is, they may not be preceded by whitespace.  They should be followed by a newline
-	%<label>			Within an expression, is replaced by the line number of label <label>, which need not be in the same source file (and therefore this entity may occur in numbered source files)
+.<label>				A label.  <label> must match "[[:alpha:]][[:alnum:]_]*"; that is, it must start with a letter (either case) and consist of letters, underscores and numbers only.  Labels must occur at the start of line; that is, they may not be preceded by whitespace.  They should be followed by a newline
+	%<label>			Within an expression, is replaced by the line number of label <label>, which need not be in the same source file
 	HEX <hex>			Within an expression, is replaced by the decimal value of hexadecimal <hex> (ie. like BIN).  E.g. "HEX 1FF" -> "511"
 	0x<hex>				As HEX <hex>
 	OCT <oct>			Within an expression, is replaced by the decimal value of octal <oct>.  E.g. "OCT 307" -> "199"

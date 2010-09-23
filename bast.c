@@ -369,11 +369,21 @@ int main(int argc, char *argv[])
 					{
 						if(num)
 						{
+							if(data[i].data.bas.renum!=1)
+							{
+								fprintf(stderr, "bast: Linker (Pass 1): Internal error (num!=0 but renum!=1), %s\n", data[i].name);
+								return(EXIT_FAILURE);
+							}
 							data[i].data.bas.basic[j].number=num;
 							num+=dnum;
 						}
 						else
 						{
+							if(data[i].data.bas.renum)
+							{
+								fprintf(stderr, "bast: Linker (Pass 1): Internal error (num==0 but renum!=0), %s\n", data[i].name);
+								return(EXIT_FAILURE);
+							}
 							while(last<nlabels)
 								labels[last++].ptr.line=data[i].data.bas.basic[j].number;
 						}
