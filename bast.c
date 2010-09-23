@@ -34,12 +34,13 @@ typedef struct
 	char *text; // raw text
 	int ntok; // number of tokens in line
 	token *tok; // results of tokenisation
+	off_t offset; // offset of start of text within BASIC segment.  Is relative to 0x5CCB, typically
 }
 basline;
 
 typedef struct
 {
-	enum {BYTE, LBL, LBM} type;
+	enum {BNONE, BYTE, LBL, LBM} type;
 	unsigned char byte;
 	// TODO pointer to line if LBL or LBM
 }
@@ -49,6 +50,7 @@ typedef struct
 {
 	int nbytes;
 	bin_byte *bytes;
+	int org;
 }
 bin_seg;
 
@@ -63,6 +65,8 @@ typedef struct
 	int rnstart;
 	int rnoffset;
 	int rnend;
+	char *block; // data block
+	ssize_t blen; // length of block
 }
 bas_seg;
 
@@ -77,12 +81,9 @@ segment;
 typedef struct
 {
 	int seg; // segment
-	union // depends on segment.type
-	{
-		int line; // linenumber of BASIC line
-		off_t offset; // offset of M/C label within segment
-	}
-	ptr; // pointer within that segment
+	int sline; // offset of BASIC line within bas_seg
+	int line; // linenumber of BASIC line
+	off_t offset; // offset of BINARY label within bin_seg
 	char *text; // label text
 }
 label;
@@ -105,7 +106,8 @@ token gettoken(char *data, int *bt);
 void zxfloat(char *buf, double value);
 bool isvalidlabel(char *text);
 void addlabel(int *nlabels, label **labels, label lbl);
-void buildbas(int *dbl, char **dblock, bas_seg bas);
+void buildbas(bas_seg *bas, bool write);
+void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name);
 
 int main(int argc, char *argv[])
 {
@@ -237,6 +239,7 @@ int main(int argc, char *argv[])
 		curr->data.bas.line=0;
 		curr->data.bas.lline=NULL;
 		curr->data.bas.renum=0;
+		curr->data.bas.block=NULL;
 		while(!feof(fp))
 		{
 			char *line=fgetl(fp);
@@ -375,7 +378,7 @@ int main(int argc, char *argv[])
 	/* TODO: fork the assembler for each #[r]asm/#endasm block */
 	
 	/* TOKENISE BASIC SEGMENTS */
-	if(ninbas && outtype==TAPE)
+	if(ninbas)
 	{
 		int i;
 		for(i=0;i<nsegs;i++)
@@ -400,7 +403,7 @@ int main(int argc, char *argv[])
 	/* END: TOKENISE BASIC SEGMENTS */
 	
 	/* LINKER & LABELS */
-	// PASS 1: Find labels, renumber labelled BASIC sources
+	// PASS 1: Find labels, renumber labelled BASIC sources, load in ~links as attached bin_segs
 	int nlabels=0;
 	label * labels=NULL;
 	int i;
@@ -429,6 +432,8 @@ int main(int argc, char *argv[])
 					num=data[i].data.bas.rnstart?data[i].data.bas.rnstart:dnum;
 					fprintf(stderr, "bast: Renumber: BASIC segment %s, start %u, spacing %u, end <=%u\n", data[i].name, num, dnum, end);
 				}
+				int dl;
+				init_char(&data[i].data.bas.block, &dl, &data[i].data.bas.blen);
 				int last=0;
 				int j;
 				for(j=0;j<data[i].data.bas.nlines;j++)
@@ -453,7 +458,42 @@ int main(int argc, char *argv[])
 								return(EXIT_FAILURE);
 							}
 							while(last<nlabels)
-								labels[last++].ptr.line=data[i].data.bas.basic[j].number;
+							{
+								labels[last].sline=j;
+								labels[last++].line=data[i].data.bas.basic[j].number;
+							}
+						}
+						int k;
+						for(k=0;k<data[i].data.bas.basic[j].ntok;k++)
+						{
+							if(data[i].data.bas.basic[j].tok[k].tok==TOKEN_RLINK)
+							{
+								if(data[i].data.bas.basic[j].tok[k].data)
+								{
+									FILE *fp=fopen(data[i].data.bas.basic[j].tok[k].data, "rb");
+									if(fp)
+									{
+										data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(sizeof(bin_seg));
+										err=false;
+										bin_load(data[i].data.bas.basic[j].tok[k].data, fp, (bin_seg *)data[i].data.bas.basic[j].tok[k].data2, NULL);
+										if(err)
+										{
+											fprintf(stderr, "bast: Linker: failed to attach BINARY segment\n\t%s:%u\n", data[i].name, j);
+											return(EXIT_FAILURE);
+										}
+									}
+									else
+									{
+										fprintf(stderr, "bast: Linker: failed to open rlinked file %s\n\t%s:%u\n", data[i].data.bas.basic[j].tok[k].data, data[i].name, j);
+										return(EXIT_FAILURE);
+									}
+								}
+								else
+								{
+									fprintf(stderr, "bast: Linker: Internal error: TOKEN_RLINK without filename\n\t%s:%u", data[i].name, j);
+									return(EXIT_FAILURE);
+								}
+							}
 						}
 					}
 					else if(*data[i].data.bas.basic[j].text=='.')
@@ -463,10 +503,17 @@ int main(int argc, char *argv[])
 							label lbl;
 							lbl.text=strdup(data[i].data.bas.basic[j].text+1);
 							lbl.seg=i;
-							lbl.ptr.line=num;
+							lbl.line=num;
+							lbl.sline=j;
 							addlabel(&nlabels, &labels, lbl);
 						}
 					}
+				}
+				buildbas(&data[i].data.bas, false);
+				if(data[i].data.bas.blen==-1)
+				{
+					fprintf(stderr, "bast: Failed to link BASIC segment %s\n", data[i].name);
+					return(EXIT_FAILURE);
 				}
 				if(data[i].data.bas.renum) data[i].data.bas.renum=2;
 			break;
@@ -496,7 +543,7 @@ int main(int argc, char *argv[])
 						// TODO limit label scope to this file & the files it has #imported
 						if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.lline, labels[l].text)==0))
 						{
-							data[i].data.bas.line=labels[l].ptr.line;
+							data[i].data.bas.line=labels[l].line;
 							break;
 						}
 					}
@@ -522,9 +569,31 @@ int main(int argc, char *argv[])
 								{
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
 									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
-									sprintf(data[i].data.bas.basic[j].tok[k].data, "%u", labels[l].ptr.line);
+									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", labels[l].line);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
-									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].ptr.line);
+									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].line);
+									break;
+								}
+							}
+							if(l==nlabels)
+							{
+								fprintf(stderr, "bast: Linker: Undefined label %s\n\t"LOC"\n", data[i].data.bas.basic[j].tok[k].data, data[i].name, j);
+								return(EXIT_FAILURE);
+							}
+						}
+						else if(data[i].data.bas.basic[j].tok[k].tok==TOKEN_PTRLBL)
+						{
+							int l;
+							for(l=0;l<nlabels;l++)
+							{
+								// TODO limit label scope to this file & the files it has #imported
+								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
+								{
+									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
+									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
+									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
+									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
+									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
 									break;
 								}
 							}
@@ -536,6 +605,38 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
+				for(j=0;j<data[i].data.bas.nlines;j++)
+				{
+					int k;
+					for(k=0;k<data[i].data.bas.basic[j].ntok;k++)
+					{
+						if(data[i].data.bas.basic[j].tok[k].tok==TOKEN_PTRLBL)
+						{
+							int l;
+							for(l=0;l<nlabels;l++)
+							{
+								// TODO limit label scope to this file & the files it has #imported
+								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
+								{
+									fprintf(stderr, "bast: Linker: expanded @%s", data[i].data.bas.basic[j].tok[k].data);
+									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
+									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
+									sprintf(data[i].data.bas.basic[j].tok[k].data, "%u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
+									fprintf(stderr, " to %u\n", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
+									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
+									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
+									break;
+								}
+							}
+							if(l==nlabels)
+							{
+								fprintf(stderr, "bast: Linker: Undefined label %s\n\t"LOC"\n", data[i].data.bas.basic[j].tok[k].data, data[i].name, j);
+								return(EXIT_FAILURE);
+							}
+						}
+					}
+				}
+				
 			break;
 			default:
 				fprintf(stderr, "bast: Linker: Internal error: Bad segment-type %u\n", data[i].type);
@@ -566,8 +667,6 @@ int main(int argc, char *argv[])
 					fputc(0x13, fout);
 					fputc(0x00, fout);
 					unsigned char cksum=0;
-					int dbl;
-					char *dblock;
 					fputc(0x00, fout); // HEADER
 					switch(data[i].type)
 					{
@@ -582,16 +681,16 @@ int main(int argc, char *argv[])
 								fputc(name[j], fout);
 								cksum^=name[j];
 							}
-							buildbas(&dbl, &dblock, data[i].data.bas);
-							if(dbl==-1)
+							buildbas(&data[i].data.bas, true);
+							if(data[i].data.bas.blen==-1)
 							{
-								fprintf(stderr, "bast: TAPE: Failed to create BASIC segment %s\n", data[i].name);
+								fprintf(stderr, "bast: Failed to link BASIC segment %s\n", data[i].name);
 								return(EXIT_FAILURE);
 							}
-							fputc(dbl, fout);
-							cksum^=dbl&0xFF;
-							fputc(dbl>>8, fout);
-							cksum^=dbl>>8;
+							fputc(data[i].data.bas.blen, fout);
+							cksum^=data[i].data.bas.blen&0xFF;
+							fputc(data[i].data.bas.blen>>8, fout);
+							cksum^=data[i].data.bas.blen>>8;
 							if(data[i].data.bas.line) // Parameter 1 = autostart line
 							{
 								fputc(data[i].data.bas.line, fout);
@@ -604,11 +703,11 @@ int main(int argc, char *argv[])
 								fputc(0xFF, fout);
 								fputc(0xFF, fout);
 							}
-							// Parameter 2 = dbl
-							fputc(dbl, fout);
-							cksum^=dbl&0xFF;
-							fputc(dbl>>8, fout);
-							cksum^=dbl>>8;
+							// Parameter 2 = data[i].data.bas.blen
+							fputc(data[i].data.bas.blen, fout);
+							cksum^=data[i].data.bas.blen&0xFF;
+							fputc(data[i].data.bas.blen>>8, fout);
+							cksum^=data[i].data.bas.blen>>8;
 							fputc(cksum, fout);
 						break;
 						default:
@@ -617,18 +716,18 @@ int main(int argc, char *argv[])
 						break;
 					}
 					// write data block
-					fputc((dbl+2), fout);
-					fputc((dbl+2)>>8, fout);
+					fputc((data[i].data.bas.blen+2), fout);
+					fputc((data[i].data.bas.blen+2)>>8, fout);
 					fputc(0xFF, fout); // DATA
 					cksum=0xFF;
 					int j;
-					for(j=0;j<dbl;j++)
+					for(j=0;j<data[i].data.bas.blen;j++)
 					{
-						fputc(dblock[j], fout);
-						cksum^=dblock[j];
+						fputc(data[i].data.bas.block[j], fout);
+						cksum^=data[i].data.bas.block[j];
 					}
 					fputc(cksum, fout);
-					free(dblock);
+					free(data[i].data.bas.block);
 					fprintf(stderr, "bast: Wrote segment %s\n", data[i].name);
 				}
 				fclose(fout);
@@ -723,7 +822,10 @@ char * fgetl(FILE *fp)
 						char x[3]={d, e, 0};
 						unsigned int h;
 						sscanf(x, "%02x", &h);
-						append_char(&lout, &l, &i, h&0xFF);
+						if(h)
+							append_char(&lout, &l, &i, h&0xFF);
+						else
+							append_str(&lout, &l, &i, "\\0");
 					}
 				}
 			}
@@ -768,8 +870,7 @@ void append_char(char **buf, int *l, int *i, char c)
 	}
 	else
 	{
-		init_char(buf, l, i);
-		append_char(buf, l, i, c);
+		(*i)++; // in the absence of a buffer, we're just counting bytes
 	}
 }
 
@@ -904,6 +1005,7 @@ void tokenise(basline *b, char **inbas, int fbas, int renum)
 								while(isspace(*ptr))
 									ptr++;
 								b->tok[b->ntok-1].data=strdup(ptr);
+								b->tok[b->ntok-1].dl=0; // not an embedded-zeros style REM; those aren't allowed here
 								ptr+=strlen(ptr);
 							}
 							break;
@@ -943,6 +1045,26 @@ token gettoken(char *data, int *bt)
 	rv.tok=0;
 	rv.data=NULL;
 	*bt=0;
+	if(*data<' ') // nonprinting characters (control chars, eg. colour codes)
+	{
+		rv.tok=TOKEN_NONPRINT;
+		rv.data=(char *)malloc(2);
+		rv.data[0]=*data;
+		rv.data[1]=0;
+		*bt=strlen(data+1);
+		return(rv);
+	}
+	if(*data=='\\') // nul character, input as '\00' (can't use within strings)
+	{
+		if(data[1]=='0')
+		{
+			rv.tok=TOKEN_NONPRINT;
+			rv.data=(char *)malloc(1);
+			rv.data[0]=0;
+			*bt=strlen(data+2);
+			return(rv);
+		}
+	}
 	if(*data=='"')
 	{
 		char *sm=strchr(data+1, '"');
@@ -955,15 +1077,27 @@ token gettoken(char *data, int *bt)
 			return(rv);
 		}
 	}
-	if(*data=='%')
+	if((data[0]=='%') && isalpha(data[1]))
 	{
-		char *sp=strpbrk(data, " \t\n:");
-		if(sp && !sp[1])
+		int sp=strspn(data+1, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
+		if(sp && data[sp+1])
 		{
 			rv.data=strdup(data+1);
-			rv.data[sp-data-1]=0;
+			rv.data[sp]=0;
 			rv.tok=TOKEN_LABEL;
-			*bt=1;
+			*bt=strlen(data+sp+2);
+			return(rv);
+		}
+	}
+	if((data[0]=='@') && isalpha(data[1]))
+	{
+		int sp=strspn(data+1, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
+		if(sp && data[sp+1])
+		{
+			rv.data=strdup(data+1);
+			rv.data[sp]=0;
+			rv.tok=TOKEN_PTRLBL;
+			*bt=strlen(data+sp+2);
 			return(rv);
 		}
 	}
@@ -1002,6 +1136,16 @@ token gettoken(char *data, int *bt)
 			*bt=strlen(data+strlen(tokentable[j].text));
 			return(rv);
 		}
+	}
+	if((strncasecmp(data, "~rlink", 6)==0) && (data[strlen(data)-1]=='\n'))
+	{
+		rv.tok=TOKEN_RLINK;
+		char *p=data+6;
+		while(isspace(*p)) p++;
+		rv.data=strdup(p);
+		rv.data[strlen(data)-8]=0;
+		*bt=0;
+		return(rv);
 	}
 	if((!isalpha(data[strlen(data)-1])) && (strcasecmp(data, "GO "))) // "GO " is the start of GO TO or GO SUB; you can't have a variable called 'go'.
 	{
@@ -1082,64 +1226,144 @@ void addlabel(int *nlabels, label **labels, label lbl)
 	}
 }
 
-void buildbas(int *dbl, char **dblock, bas_seg bas)
+void buildbas(bas_seg *bas, bool write) // if write is false, we just compute offsets
 {
-	int dbi;
-	init_char(dblock, dbl, &dbi);
-	int i;
-	for(i=0;i<bas.nlines;i++)
+	int dbl;
+	if(write)
 	{
-		if(bas.basic[i].ntok)
+		init_char(&bas->block, &dbl, &bas->blen);
+	}
+	else
+	{
+		bas->block=NULL;
+	}
+	int i;
+	for(i=0;i<bas->nlines;i++) // Address of first line's number MSB is 0x5CCB.  Text starts 4 bytes later
+	{
+		bas->basic[i].offset=bas->blen+4+0x5CCB;
+		if(bas->basic[i].ntok)
 		{
-			append_char(dblock, dbl, &dbi, bas.basic[i].number>>8); // MSB first!!!!
-			append_char(dblock, dbl, &dbi, bas.basic[i].number);
+			append_char(&bas->block, &dbl, &bas->blen, bas->basic[i].number>>8); // MSB first!!!!
+			append_char(&bas->block, &dbl, &bas->blen, bas->basic[i].number);
 			char *line;
 			int li,ll;
 			init_char(&line, &ll, &li);
 			int j;
-			for(j=0;j<bas.basic[i].ntok;j++)
+			for(j=0;j<bas->basic[i].ntok;j++)
 			{
-				if(bas.basic[i].tok[j].tok&0x80) // Keyword (or other high-bank token), pass thru untouched
+				if(bas->basic[i].tok[j].tok&0x80) // Keyword (or other high-bank token), pass thru untouched
 				{
-					append_char(&line, &ll, &li, bas.basic[i].tok[j].tok);
-					if(bas.basic[i].tok[j].tok==0xEA) // REM token, rest-of-line in token.data
-						append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+					append_char(&line, &ll, &li, bas->basic[i].tok[j].tok);
+					if(bas->basic[i].tok[j].tok==0xEA) // REM token, rest-of-line in token.data
+					{
+						if(bas->basic[i].tok[j].dl)
+						{
+							int ri;
+							for(ri=0;ri<bas->basic[i].tok[j].dl;ri++)
+								append_char(&line, &ll, &li, bas->basic[i].tok[j].data[ri]);
+						}
+						else
+						{
+							append_str(&line, &ll, &li, bas->basic[i].tok[j].data);
+						}
+					}
 				}
 				else
 				{
 					int k;
 					for(k=0;k<ntokens;k++)
 					{
-						char data[2]={bas.basic[i].tok[j].tok, 0};
+						char data[2]={bas->basic[i].tok[j].tok, 0};
 						if(strcasecmp(data, tokentable[k].text)==0)
 						{
-							append_char(&line, &ll, &li, bas.basic[i].tok[j].tok);
+							append_char(&line, &ll, &li, bas->basic[i].tok[j].tok);
 							break;
 						}
 					}
 					if(k==ntokens)
 					{
-						switch(bas.basic[i].tok[j].tok)
+						switch(bas->basic[i].tok[j].tok)
 						{
 							case TOKEN_VAR: // fallthrough
 							case TOKEN_VARSTR:
-								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+								append_str(&line, &ll, &li, bas->basic[i].tok[j].data);
 							break;
 							case TOKEN_ZXFLOAT:
-								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+								append_str(&line, &ll, &li, bas->basic[i].tok[j].data);
 								append_char(&line, &ll, &li, TOKEN_ZXFLOAT);
 								int l;
 								for(l=0;l<5;l++)
-									append_char(&line, &ll, &li, bas.basic[i].tok[j].data2[l]);
+									append_char(&line, &ll, &li, bas->basic[i].tok[j].data2[l]);
 							break;
 							case TOKEN_STRING:
 								append_char(&line, &ll, &li, '"');
-								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
+								append_str(&line, &ll, &li, bas->basic[i].tok[j].data);
 								append_char(&line, &ll, &li, '"');
 							break;
+							case TOKEN_RLINK:
+								if(bas->basic[i].tok[j].data2)
+								{
+									if(write)
+									{
+										append_char(&line, &ll, &li, 0xEA);
+										int l;
+										for(l=0;l<((bin_seg *)bas->basic[i].tok[j].data2)->nbytes;l++)
+											append_char(&line, &ll, &li, ((bin_seg *)bas->basic[i].tok[j].data2)->bytes[l].byte);
+									}
+									else
+									{
+										append_char(&line, &ll, &li, TOKEN_RLINK);
+										int l;
+										for(l=0;l<((bin_seg *)bas->basic[i].tok[j].data2)->nbytes;l++)
+											append_char(&line, &ll, &li, 0);
+									}
+								}
+							break;
+							case TOKEN_NONPRINT:
+								if(bas->basic[i].tok[j].data)
+								{
+									append_char(&line, &ll, &li, *bas->basic[i].tok[j].data);
+								}
+							break;
+							case TOKEN_PTRLBL:
+								if(bas->basic[i].tok[j].data)
+								{
+									if(write)
+									{
+										fprintf(stderr, "bast: buildbas: Internal error: TOKEN_PTRLBL in second pass\n");
+										bas->blen=-1;
+										goto exit;
+									}
+									else
+									{
+										append_char(&line, &ll, &li, TOKEN_PTRLBL);
+										int l;
+										for(l=0;l<10;l++)
+											append_char(&line, &ll, &li, 0);
+									}
+								}
+							break;
+							case TOKEN_LABEL:
+								if(bas->basic[i].tok[j].data)
+								{
+									if(write)
+									{
+										fprintf(stderr, "bast: buildbas: Internal error: TOKEN_LABEL in second pass\n");
+										bas->blen=-1;
+										goto exit;
+									}
+									else
+									{
+										append_char(&line, &ll, &li, TOKEN_LABEL);
+										int l;
+										for(l=0;l<10;l++)
+											append_char(&line, &ll, &li, 0);
+									}
+								}
+							break;
 							default:
-								fprintf(stderr, "bast: buildbas: Internal error: Bad token %02X\n", bas.basic[i].tok[j].tok);
-								*dbl=-1;
+								fprintf(stderr, "bast: buildbas: Internal error: Bad token 0x%02X\n", bas->basic[i].tok[j].tok);
+								bas->blen=-1;
 								goto exit;
 							break;
 						}
@@ -1147,13 +1371,128 @@ void buildbas(int *dbl, char **dblock, bas_seg bas)
 				}
 			}
 			append_char(&line, &ll, &li, 0x0D); // 0x0D is ENTER in ZX charset
-			append_char(dblock, dbl, &dbi, li);
-			append_char(dblock, dbl, &dbi, li>>8);
+			append_char(&bas->block, &dbl, &bas->blen, li);
+			append_char(&bas->block, &dbl, &bas->blen, li>>8);
 			for(j=0;j<li;j++)
-				append_char(dblock, dbl, &dbi, line[j]);
+				append_char(&bas->block, &dbl, &bas->blen, line[j]);
 			free(line);
 		}
 	}
-	*dbl=dbi;
 	exit:;
+}
+
+void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name)
+{
+	if(buf)
+	{
+		buf->nbytes=0;
+		buf->bytes=NULL;
+		fprintf(stderr, "bast: Linker (object): reading %s\n", fname);
+		char *line=fgetl(fp);
+		int len=0;
+		int i=1;
+		while(line&&!feof(fp))
+		{
+			if(*line)
+			{
+				if(*line=='@')
+				{
+					sscanf(line, "@%04x", &buf->org);
+				}
+				else if(*line=='#')
+				{
+					if(name)
+						*name=strdup(line+1);
+				}
+				else if(*line=='*')
+				{
+					sscanf(line, "*%04x", &len);
+				}
+				else
+				{
+					unsigned char cksum=0;
+					char *ent=strtok(line, " \t");
+					bin_byte row[8];
+					int col;
+					for(col=0;col<8;col++)
+					{
+						if(isxdigit(ent[0])&&isxdigit(ent[1]))
+						{
+							unsigned int n;
+							sscanf(ent, "%02x", &n);
+							row[col].type=BYTE;
+							row[col].byte=n;
+							cksum^=n;
+						}
+						else if((ent[0]=='$')&&(ent[1]=='$'))
+						{
+							if((!len)||(buf->nbytes+col+1>=len))
+							{
+								row[col].type=BNONE;
+								row[col].byte=0;
+							}
+							else
+							{
+								fprintf(stderr, "bast: Linker (object): Bad pair %s (too soon)\n\t%s:%u\n", ent, fname, i);
+								err=true;
+							}
+						}
+						else
+						{
+							fprintf(stderr, "bast: Linker (object): Bad pair %s\n\t%s:%u\n", ent, fname, i);
+							err=true;
+						}
+						ent=strtok(NULL, " \t");
+					}
+					if(ent&&(ent[0]=='=')&&(ent[1]=='='))
+					{
+						ent=strtok(NULL, "");
+					}
+					else
+					{
+						fprintf(stderr, "bast: Linker (object): Bad pair %s\n\t%s:%u\n", ent, fname, i);
+						err=true;
+					}
+					if(isxdigit(ent[0])&&isxdigit(ent[1]))
+					{
+						unsigned int n;
+						sscanf(ent, "%02x", &n);
+						if(cksum!=n)
+						{
+							fprintf(stderr, "bast: Linker (object): Checksum failed: got %02x, expected %02x\n\t%s:%u\n", n, cksum, fname, i);
+							err=true;
+						}
+						else
+						{
+							col=0;
+							while((col<8) && row[col].type!=BNONE)
+							{
+								buf->nbytes++;
+								buf->bytes=(bin_byte *)realloc(buf->bytes, buf->nbytes*sizeof(bin_byte));
+								buf->bytes[buf->nbytes-1]=row[col++];
+							}
+						}
+					}
+				}
+			}
+			free(line);
+			line=err?NULL:fgetl(fp);
+			i++;
+		}
+		fclose(fp);
+		if(len && (len!=buf->nbytes))
+		{
+			fprintf(stderr, "bast: Linker (object): %s got bad count %u bytes of %u", fname, buf->nbytes, len);
+			err=true;
+		}
+		else
+		{
+			fprintf(stderr, "bast: Linker (object): %s got %u bytes\n", fname, buf->nbytes);
+		}
+	}
+	else
+	{
+		fprintf(stderr, "bast: Linker (object): Internal error: %s no buffer to write!\n", fname);
+		err=true;
+	}
 }
