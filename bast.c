@@ -96,7 +96,7 @@ int addbasline(int *nlines, basline **basic, char *line);
 segment *addsegment(int *nsegs, segment **data);
 void basfree(basline b);
 void tokenise(basline *b, char **inbas, int fbas);
-token gettoken(char *data);
+token gettoken(char *data, int *bt);
 void zxfloat(char *buf, double value);
 bool isvalidlabel(char *text);
 void addlabel(int *nlabels, label **labels, label lbl);
@@ -609,10 +609,8 @@ char * fgetl(FILE *fp)
 		c=fgetc(fp);
 		if((c==EOF)||(c=='\n'))
 			break;
-		if(c!=0) // Todo: detect STRING status for the special munging rules
+		if(c!=0)
 		{
-			if(strchr("=<>[]()+-*/^,;:", c)) // Special munging rule: add a space before any =, < or >, [ or ], ( or ), +, -, *, /, ^, ,, ;, :
-				append_char(&lout, &l, &i, ' ');
 			append_char(&lout, &l, &i, c);
 		}
 	}
@@ -734,6 +732,7 @@ void tokenise(basline *b, char **inbas, int fbas)
 		if(b->tok) free(b->tok);
 		b->tok=NULL;
 		b->ntok=0;
+		int bt;
 		if(b->text && !strchr("#.\n", *b->text))
 		{
 			char *ptr=b->text;
@@ -752,14 +751,14 @@ void tokenise(basline *b, char **inbas, int fbas)
 				{
 					append_char(&curtok, &l, &i, ptr[tl++]);
 					fprintf(stderr, "gettoken(%s)", curtok);
-					token dat=gettoken(curtok);
+					token dat=gettoken(curtok, &bt);
 					fprintf(stderr, "\t= %02X\n", dat.tok);
 					if(dat.tok) // token is recognised?
 					{
 						b->ntok++;
 						b->tok=(token *)realloc(b->tok, b->ntok*sizeof(token));
 						b->tok[b->ntok-1]=dat;
-						ptr+=tl;
+						ptr+=tl-bt;
 						tl=0;
 						if(curtok) free(curtok);
 						curtok=NULL;
@@ -778,7 +777,7 @@ void tokenise(basline *b, char **inbas, int fbas)
 			{
 				fprintf(stderr, "gettoken(%s\\n)", curtok);
 				append_char(&curtok, &l, &i, '\n');
-				token dat=gettoken(curtok);
+				token dat=gettoken(curtok, &bt);
 				fprintf(stderr, "\t= %02X\n", dat.tok);
 				if(dat.tok) // token is recognised?
 				{
@@ -797,12 +796,13 @@ void tokenise(basline *b, char **inbas, int fbas)
 	}
 }
 
-token gettoken(char *data)
+token gettoken(char *data, int *bt)
 {
 	token rv;
 	rv.text=data;
 	rv.tok=0;
 	rv.data=NULL;
+	*bt=0;
 	if(*data=='"')
 	{
 		char *sm=strchr(data+1, '"');
@@ -811,6 +811,7 @@ token gettoken(char *data)
 			rv.data=strdup(data+1);
 			rv.data[sm-data-1]=0;
 			rv.tok=TOKEN_STRING;
+			*bt=0;
 			return(rv);
 		}
 	}
@@ -822,38 +823,47 @@ token gettoken(char *data)
 			rv.data=strdup(data+1);
 			rv.data[sp-data-1]=0;
 			rv.tok=TOKEN_LABEL;
+			*bt=1;
 			return(rv);
 		}
 	}
 	// test for number
-	// TODO: HEX, OCT
-	if(strchr(" \t\n", data[strlen(data)-1]))
+	char *endptr;
+	double num=strtod(data, &endptr);
+	if(*endptr && strchr(" \t\n", *endptr) && (endptr!=data))
 	{
-		char *endptr;
-		double num=strtod(data, &endptr);
-		if(strchr(" \t\n", *endptr))
+		// 0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
+		rv.tok=TOKEN_ZXFLOAT;
+		rv.data=(char *)malloc(endptr-data+1);
+		strncpy(rv.data, data, endptr-data);
+		rv.data[endptr-data]=0;
+		rv.data2=(char *)malloc(5);
+		zxfloat(rv.data2, num);
+		*bt=strlen(endptr);
+		return(rv);
+	}
+	// TODO: HEX, OCT
+	int i;
+	for(i=0;i<ntokens;i++)
+	{
+		if(strcasecmp(data, tokentable[i].text)==0)
 		{
-			// 0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
-			rv.tok=TOKEN_ZXFLOAT;
-			rv.data=(char *)malloc(endptr-data+1);
-			strncpy(rv.data, data, endptr-data);
-			rv.data[endptr-data]=0;
-			rv.data2=(char *)malloc(5);
-			zxfloat(rv.data2, num);
+			rv.tok=tokentable[i].tok;
 			return(rv);
 		}
+	}
+	if((!isalpha(data[strlen(data)-1])) && (strcasecmp(data, "GO "))) // "GO " is the start of GO TO or GO SUB; you can't have a variable called 'go'.
+	{
 		// assume it's a variable
 		int i=0,s=0;
 		while(data[i])
 		{
-			if(strchr(" \t\n", data[i]))
-				break;
 			if(!isalpha(data[i]))
 			{
 				if(data[i]=='$')
 					s=1;
 				else
-					s=2;
+					s=i?0:2;
 				break;
 			}
 			i++;
@@ -863,15 +873,7 @@ token gettoken(char *data)
 			rv.tok=s?TOKEN_VARSTR:TOKEN_VAR;
 			rv.data=strdup(data);
 			rv.data[i]=0;
-			return(rv);
-		}
-	}
-	int i;
-	for(i=0;i<ntokens;i++)
-	{
-		if(strcasecmp(data, tokentable[i].text)==0)
-		{
-			rv.tok=tokentable[i].tok;
+			*bt=1;
 			return(rv);
 		}
 	}
