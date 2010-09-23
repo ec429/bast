@@ -3,7 +3,7 @@ bast - ZX Basic (and Z80 assembler) text to tape
 --------------------------------------
 
 SYNOPSIS
-bast {[-b] <basfile> | -l <linkobj> | -a <asmfile> | -I <incpath> | -I0 | -L <linkpath> | -L0 | -W[-] <warning> | <other options>}* {-o <outobj> | -oi | -t <outtap>}
+bast {[-b] <basfile> | -l <linkobj> | -a <asmfile> | -I <incpath> | -I0 | -L <linkpath> | -L0 | -W[-] <warning> | <other options>}* {-o <outobj> | -oi | -t <outtap>} [--[no-]emu]
 bast {-h|--help|-V|--version}
 
 OPTIONS CONTROLLING SOURCE FILES

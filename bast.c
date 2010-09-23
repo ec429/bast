@@ -115,6 +115,7 @@ int main(int argc, char *argv[])
 	char **inobj=NULL;
 	enum {NONE, OBJ, TAPE} outtype=NONE;
 	char *outfile=NULL;
+	bool emu=false;
 	int arg;
 	int state=0;
 	for(arg=1;arg<argc;arg++)
@@ -128,6 +129,14 @@ int main(int argc, char *argv[])
 			{
 				printf(VERSION_MSG);
 				return(EXIT_SUCCESS);
+			}
+			else if(strcmp(varg, "--emu")==0)
+			{
+				emu=true;
+			}
+			else if(strcmp(varg, "--no-emu")==0)
+			{
+				emu=false;
 			}
 			else if(strcmp(varg, "-b")==0)
 				state=1;
@@ -581,6 +590,7 @@ int main(int argc, char *argv[])
 					free(dblock);
 					fprintf(stderr, "bast: Wrote segment %s\n", data[i].name);
 				}
+				fclose(fout);
 			}
 			else
 			{
@@ -595,6 +605,30 @@ int main(int argc, char *argv[])
 	}
 	/* END: CREATE OUTPUT */
 	
+	if(emu && outtype==TAPE)
+	{
+		char *emucmd=getenv("EMU");
+		if(emucmd)
+		{
+			char *cmd;
+			int l,i;
+			init_char(&cmd, &l, &i);
+			while(*emucmd)
+			{
+				if(*emucmd=='%')
+				{
+					append_str(&cmd, &l, &i, outfile);
+					emucmd++;
+				}
+				else
+				{
+					append_char(&cmd, &l, &i, *emucmd++);
+				}
+			}
+			system(cmd);
+			free(cmd);
+		}
+	}
 	return(EXIT_SUCCESS);
 }
 
@@ -830,7 +864,7 @@ token gettoken(char *data, int *bt)
 	// test for number
 	char *endptr;
 	double num=strtod(data, &endptr);
-	if(*endptr && strchr(" \t\n", *endptr) && (endptr!=data))
+	if(*endptr && !strchr("0123456789.", *endptr) && (endptr!=data))
 	{
 		// 0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
 		rv.tok=TOKEN_ZXFLOAT;
@@ -846,11 +880,12 @@ token gettoken(char *data, int *bt)
 	int i;
 	for(i=0;i<ntokens;i++)
 	{
-		size_t s=strcspn(data, isalpha(*data)?" \t\n0123456789":" \t\nabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
-		if((data[s]) && (s==strlen(tokentable[i].text)) && strncasecmp(data, tokentable[i].text, s)==0)
+		if(data[strlen(tokentable[i].text)] && !strncasecmp(data, tokentable[i].text, strlen(tokentable[i].text)))
 		{
+			if((tokentable[i].tok&0x80)&&(data[strlen(tokentable[i].text)]!=' '))
+				continue;
 			rv.tok=tokentable[i].tok;
-			*bt=strlen(data+s);
+			*bt=strlen(data+strlen(tokentable[i].text));
 			return(rv);
 		}
 	}
@@ -969,12 +1004,9 @@ void buildbas(int *dbl, char **dblock, bas_seg bas)
 					{
 						switch(bas.basic[i].tok[j].tok)
 						{
-							case TOKEN_VAR:
-								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
-							break;
+							case TOKEN_VAR: // fallthrough
 							case TOKEN_VARSTR:
 								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
-								append_char(&line, &ll, &li, '$');
 							break;
 							case TOKEN_ZXFLOAT:
 								append_str(&line, &ll, &li, bas.basic[i].tok[j].data);
