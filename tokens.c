@@ -24,9 +24,6 @@ void mktoktbl(void)
 	addtokd("=", '=');
 	addtokd(">", '>');
 	addtokd("<", '<');
-	addtokd("< =", 0xC7); // alias "< =" -> "<=" (needed as we have the munging rule)
-	addtokd("> =", 0xC8); // alias "> =" -> ">=" (needed as we have the munging rule)
-	addtokd("< >", 0xC9); // alias "< >" -> "<>" (needed as we have the munging rule)
 	addtokd("(", '(');
 	addtokd(")", ')');
 	addtokd("[", '[');

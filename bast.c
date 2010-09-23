@@ -246,10 +246,19 @@ int main(int argc, char *argv[])
 						char *second=fgetl(fp);
 						if(!second) break;
 						dfl++;
-						if(!*second) break;
+						if(!*second)
+						{
+							free(second);
+							break;
+						}
 						line[strlen(line)-1]=0;
-						char *splice=(char *)realloc(line, strlen(line)+strlen(second)+1);
-						if(!splice) break;
+						char *splice=(char *)realloc(line, strlen(line)+strlen(second)+2);
+						if(!splice)
+						{
+							free(second);
+							break;
+						}
+						line=splice;
 						strcat(splice, second);
 						free(second);
 					}
@@ -870,7 +879,7 @@ token gettoken(char *data, int *bt)
 	}
 	if(*data=='%')
 	{
-		char *sp=strpbrk(data, " \t\n");
+		char *sp=strpbrk(data, " \t\n:");
 		if(sp && !sp[1])
 		{
 			rv.data=strdup(data+1);
@@ -901,7 +910,10 @@ token gettoken(char *data, int *bt)
 	{
 		if(data[strlen(tokentable[i].text)] && !strncasecmp(data, tokentable[i].text, strlen(tokentable[i].text)))
 		{
-			if((tokentable[i].tok&0x80)&&(!strchr(" ([\t\n", data[strlen(tokentable[i].text)])))
+			fprintf(stderr, "%c\n", data[strlen(tokentable[i].text)]);
+			if(isalpha(*data)&&(!strchr(" ([:+-*/^\t\n", data[strlen(tokentable[i].text)])))
+				continue;
+			if(strchr("<>=", tokentable[i].tok)&&strchr("<>=", data[strlen(tokentable[i].text)]))
 				continue;
 			rv.tok=tokentable[i].tok;
 			*bt=strlen(data+strlen(tokentable[i].text));
