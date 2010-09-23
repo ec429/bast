@@ -673,7 +673,7 @@ token gettoken(char *data)
 		if(sp && !sp[1])
 		{
 			rv.data=strdup(data+1);
-			rv.data[sp-data]=0;
+			rv.data[sp-data-1]=0;
 			rv.tok=TOKEN_LABEL;
 			return(rv);
 		}
