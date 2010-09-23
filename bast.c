@@ -307,42 +307,6 @@ int main(int argc, char *argv[])
 	}
 	/* END: TOKENISE BASIC SEGMENTS */
 	
-	/* CLEAN UP */
-	
-	if(data)
-	{
-		int i,j;
-		for(i=0;i<nsegs;i++)
-		{
-			free(data[i].name);
-			switch(data[i].type)
-			{
-				case BASIC:
-					if(data[i].data.bas.basic)
-					{
-						for(j=0;j<data[i].data.bas.nlines;j++)
-							basfree(data[i].data.bas.basic[j]);
-						free(data[i].data.bas.basic);
-					}
-				break;
-				case BINARY:
-					if(data[i].data.bin.bytes)
-					{
-						/*for(j=0;j<data[i].data.bin.nbytes;j++)
-							bytefree(data[i].data.bin.bytes[j]);*/
-						free(data[i].data.bin.bytes);
-					}
-				break;
-				case NONE: // fallthrough
-				default: // do nothing
-				break;
-			}
-		}
-		free(data);
-	}
-	
-	/* END: CLEAN UP */
-	
 	return(EXIT_SUCCESS);
 }
 
