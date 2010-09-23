@@ -12,6 +12,9 @@ bast: bast.c tokens.o tokens.h version.h
 version.h: version
 	./gitversion
 
+version:
+	touch version
+
 tokens.o: tokens.c tokens.h addtokens.c
 
 tokens: toktbl x-tok
