@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
+#include <math.h>
 
 #include "tokens.h"
 
@@ -69,6 +71,7 @@ segment *addsegment(int *nsegs, segment **data);
 void basfree(basline b);
 void tokenise(basline *b, char **inbas, int fbas);
 token gettoken(char *data);
+void zxfloat(char *buf, double value);
 
 int main(int argc, char *argv[])
 {
@@ -327,6 +330,8 @@ char * fgetl(FILE *fp)
 			break;
 		if(c!=0)
 		{
+			if(strchr("=<>[]()+-*/^,;:", c)) // Special munging rule: add a space before any =, < or >, [ or ], ( or ), +, -, *, /, ^, ,, ;, :
+				append_char(&lout, &l, &i, ' ');
 			append_char(&lout, &l, &i, c);
 		}
 	}
@@ -448,6 +453,7 @@ void tokenise(basline *b, char **inbas, int fbas)
 			char *ptr=b->text;
 			int tl=0;
 			int l=0,i;
+			char *curtok=NULL;
 			while(*ptr)
 			{
 				while((*ptr==' ')||(*ptr=='\t'))
@@ -455,7 +461,6 @@ void tokenise(basline *b, char **inbas, int fbas)
 				if(!*ptr)
 					break;
 				tl=0;
-				char *curtok;
 				init_char(&curtok, &l, &i);
 				while(ptr[tl])
 				{
@@ -465,20 +470,38 @@ void tokenise(basline *b, char **inbas, int fbas)
 					fprintf(stderr, "\t= %02X\n", dat.tok);
 					if(dat.tok) // token is recognised?
 					{
+						b->ntok++;
+						b->tok=(token *)realloc(b->tok, b->ntok*sizeof(token));
+						b->tok[b->ntok-1]=dat;
 						ptr+=tl;
 						tl=0;
+						if(curtok) free(curtok);
+						curtok=NULL;
 						break;
 					}
 				}
 				if(!ptr[tl])
 					break;
-				if(curtok) free(curtok);
 			}
 			if(tl)
 			{
-				fprintf(stderr, "bast: Failed to tokenise '%s'\n\t"LOC"\n", ptr, LOCARG);
-				err=true;
+				fprintf(stderr, "gettoken(%s\\n)", curtok);
+				append_char(&curtok, &l, &i, '\n');
+				token dat=gettoken(curtok);
+				fprintf(stderr, "\t= %02X\n", dat.tok);
+				if(dat.tok) // token is recognised?
+				{
+					b->ntok++;
+					b->tok=(token *)realloc(b->tok, b->ntok*sizeof(token));
+					b->tok[b->ntok-1]=dat;
+				}
+				else
+				{
+					fprintf(stderr, "bast: Failed to tokenise '%s'\n\t"LOC"\n", ptr, LOCARG);
+					err=true;
+				}
 			}
+			if(curtok) free(curtok);
 		}
 	}
 }
@@ -495,9 +518,58 @@ token gettoken(char *data)
 		if(sm && !sm[1])
 		{
 			rv.data=strdup(data+1);
-			sm=strchr(rv.data, '"');
-			if(sm) *sm=0;
+			rv.data[sm-data]=0;
 			rv.tok=0xF;
+			return(rv);
+		}
+	}
+	if(*data=='%')
+	{
+		char *sp=strpbrk(data, " \t\n");
+		if(sp && !sp[1])
+		{
+			rv.data=strdup(data+1);
+			rv.data[sp-data]=0;
+			rv.tok='%';
+			return(rv);
+		}
+	}
+	// test for number
+	char *endptr;
+	double num=strtod(data, &endptr);
+	if(strchr(" \t\n", *endptr))
+	{
+		// 0x0E		ZX floating point number (full representation in token.data is (decimal)\0x0E(ZXfloat[5])
+		rv.tok=0x0E;
+		rv.data=(char *)malloc(endptr-data+6);
+		strncpy(rv.data, data, endptr-data);
+		rv.data[endptr-data]=0x0E;
+		zxfloat(rv.data+1+(endptr-data), num);
+	}
+	// TODO: HEX, OCT
+	if(strchr(" \t\n", data[strlen(data)-1]))
+	{
+		// assume it's a variable
+		int i=0,s=0;
+		while(data[i])
+		{
+			if(strchr(" \t\n", data[i]))
+				break;
+			if(!isalpha(data[i]))
+			{
+				if(data[i]=='$')
+					s=1;
+				else
+					s=2;
+				break;
+			}
+			i++;
+		}
+		if((!s) || ((s==1) && (i==2)))
+		{
+			rv.tok=s+1;
+			rv.data=strdup(data);
+			rv.data[i]=0;
 			return(rv);
 		}
 	}
@@ -511,4 +583,32 @@ token gettoken(char *data)
 		}
 	}
 	return(rv);
+}
+
+void zxfloat(char *buf, double value)
+{
+	if((labs(value-floor(value+0.5))<1e-12) && (fabs(value)<65535.5))
+	{
+		int i=floor(value+0.5);
+		// "small integer"
+		// 00 {00|FF}sign LSB MSB 00
+		buf[0]=0;
+		buf[1]=(i<0)?0xFF:0;
+		buf[2]=abs(i);
+		buf[3]=abs(i>>8);
+		buf[4]=0;
+	}
+	else
+	{
+		// 4mantissa + 1exponent
+		// m*2^(e-128)
+		int ex=1+floor(log(fabs(value))/M_LN2);
+		double mant=fabs(value)*exp(-ex*M_LN2);
+		long mantissa=floor(mant*exp(32*M_LN2)+0.5);
+		buf[0]=((mantissa>>24)&0x7F)|((value<0)?0x80:0);
+		buf[1]=mantissa>>16;
+		buf[2]=mantissa>>8;
+		buf[3]=mantissa;
+		buf[4]=ex+128;
+	}
 }

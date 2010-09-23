@@ -40,13 +40,15 @@ OTHER SOURCE FILE NON-BASIC ENTITIES
 .<label>				A label (may only occur in a labelled source file, ie. not a numbered one).  <label> must match "[[:alpha:]][[:alnum:]_]*"; that is, it must start with a letter (either case) and consist of letters, underscores and numbers only
 	%<label>			Within an expression, is replaced by the line number of label <label>, which need not be in the same source file (and therefore this entity may occur in numbered source files)
 	HEX <hex>			Within an expression, is replaced by the decimal value of hexadecimal <hex> (ie. like BIN).  E.g. "HEX 1FF" -> "511"
+	0x<hex>				As HEX <hex>
 	OCT <oct>			Within an expression, is replaced by the decimal value of octal <oct>.  E.g. "OCT 307" -> "199"
+	0<oct>				As OCT <oct>
 
 --------------------------------------
 
 COMPILATION PROCESS
 Step 0: Director.  Directives are parsed and where possible acted upon (eg #include files are included).  Any #[r]asm/#endasm blocks are separated out for the assembler.  The assembler is fork()ed and sets to work on producing the object code (assuming there is any work for it to do)
-Step 1: Tokeniser.  Each line of BASIC is split into a series of tokens (such as KEYWORDS (characters 0xA3 to 0xFF) and numbers (in Sinclair floating point notation: 0x0E + 4mantissa + 1exponent, or 00 {00|FF}sign LSB MSB 00 for small integers)).  Renumbering is performed if directed
+Step 1: Tokeniser.  Each line of BASIC is split into a series of tokens (such as KEYWORDS (characters 0xA3 to 0xFF) and numbers (in Sinclair floating point notation: 0x0E + 4mantissa + 1exponent, or 0E 00 {00|FF}sign LSB MSB 00 for small integers)).  Renumbering is performed if directed
 Step 2: Linker.  If there were any #rlink or #rasm sections, wait until they are assembled (#rasm only) and insert them into REM statements in the BASIC segment; if there were any -l, #link or #asm sections, wait until they are assembled (#asm only) and then add them (as BINARY segments) to the compilation.  They will appear in the virtual tape in the order in which they were encountered (first the -ls, then the #s in the order they appear in the BASIC source files).  If a segment has no name, one will be generated for it of the form basN or binN where N starts from 0.  If a segment's name clashes with a preexisting segment it will replace the old segment.  It is during this step that labels are translated
 Step 3: Output.  Produce whichever kind of output is required (objects, tape, etc)
 

@@ -2,6 +2,8 @@
 #pragma line start
 #pragma renum
 .%start
+	let i=0
 	print "Hello,\
  world!"
-goto %start
+	let i=i+1
+	if i<10 then goto %start

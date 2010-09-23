@@ -7,7 +7,7 @@ AWK ?= awk
 all: bast test.tap
 
 bast: bast.c tokens.o tokens.h
-	$(CC) $(CFLAGS) -o bast bast.c tokens.o
+	$(CC) $(CFLAGS) -o bast bast.c tokens.o -lm
 
 tokens.o: tokens.c tokens.h addtokens.c
 
