@@ -31,6 +31,7 @@ SOURCE FILE DIRECTIVES (BAS)
 #pragma line <line>		If eg. TAP output is produced, this file will be stored as though saved with 'SAVE "<name>" LINE <line>' (i.e., <line> is the autorun)
 #pragma renum			This file is not numbered (only labelled) and should be auto-numbered.  #pragma renum and line-numbers may not be mixed in a single source file: if you are going to auto-number, don't hardcode numbers in eg. GOTOs as these will NOT be updated
 #include <incfile>		Includes the contents of <incfile> (another Basic file, found by searching the include path) at the location of the #include
+#import <impfile>		Import the labels from <impfile> (another source file); you should only use those labels if that other file is known to be in core
 #link <linkobj>			If eg. TAP output is produced, compile in <linkobj> (a machine code object file, found by searching the link path)
 #asm		#endasm		Delimits a block of Z80 assembler, which will become a BINARY segment as though it had been linked.  The #asm block may contain its own directives which will be treated as though the #asm block had appeared in its own file (eg. it may have #pragmas at the start)
 <num> #rlink			As #link but compiles into a BASIC REM statement instead of a BINARY segment.  The code linked should be relocatable.  <num> is the linenumber (technically #rlink is a statement).  If the binary has a Name, it is ignored

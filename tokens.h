@@ -9,6 +9,13 @@
 
 #include <stdlib.h>
 
+#define TOKEN_VAR		0x01
+#define TOKEN_VARSTR	0x02
+#define TOKEN_VARNUM	0x03
+#define TOKEN_ZXFLOAT	0x0E
+#define TOKEN_STRING	0x0F
+#define TOKEN_LABEL		0x25
+
 int ntokens;
 typedef struct
 {

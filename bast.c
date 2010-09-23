@@ -408,7 +408,49 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-	// TODO PASS 2: Apply labels
+	for(i=0;i<nsegs;i++)
+	{
+		fprintf(stderr, "bast: Linker (Pass 2): %s\n", data[i].name);
+		switch(data[i].type)
+		{
+			case BASIC:;
+				int j;
+				for(j=0;j<data[i].data.bas.nlines;j++)
+				{
+					int k;
+					for(k=0;k<data[i].data.bas.basic[j].ntok;k++)
+					{
+						if(data[i].data.bas.basic[j].tok[k].tok==TOKEN_LABEL)
+						{
+							int l;
+							for(l=0;l<nlabels;l++)
+							{
+								// TODO limit label scope to this file & the files it has #imported
+								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
+								{
+									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
+									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(16);
+									sprintf(data[i].data.bas.basic[j].tok[k].data, "%u", labels[l].ptr.line);
+									size_t s=strlen(data[i].data.bas.basic[j].tok[k].data);
+									data[i].data.bas.basic[j].tok[k].data[s]=TOKEN_ZXFLOAT;
+									zxfloat(data[i].data.bas.basic[j].tok[k].data+s+1, labels[l].ptr.line);
+									break;
+								}
+							}
+							if(l==nlabels)
+							{
+								fprintf(stderr, "bast: Linker: Undefined label %s\n\t"LOC"\n", data[i].data.bas.basic[j].tok[k].data, data[i].name, j);
+							}
+						}
+					}
+				}
+			break;
+			default:
+				fprintf(stderr, "bast: Linker: Bad segment-type %u\n", data[i].type);
+				return(EXIT_FAILURE);
+			break;
+		}
+	}
 	/* END: LINKER & LABELS */
 	
 	return(EXIT_SUCCESS);
@@ -621,7 +663,7 @@ token gettoken(char *data)
 		{
 			rv.data=strdup(data+1);
 			rv.data[sm-data]=0;
-			rv.tok=0xF;
+			rv.tok=TOKEN_STRING;
 			return(rv);
 		}
 	}
@@ -632,7 +674,7 @@ token gettoken(char *data)
 		{
 			rv.data=strdup(data+1);
 			rv.data[sp-data]=0;
-			rv.tok='%';
+			rv.tok=TOKEN_LABEL;
 			return(rv);
 		}
 	}
@@ -642,10 +684,10 @@ token gettoken(char *data)
 	if(strchr(" \t\n", *endptr))
 	{
 		// 0x0E		ZX floating point number (full representation in token.data is (decimal)\0x0E(ZXfloat[5])
-		rv.tok=0x0E;
+		rv.tok=TOKEN_ZXFLOAT;
 		rv.data=(char *)malloc(endptr-data+6);
 		strncpy(rv.data, data, endptr-data);
-		rv.data[endptr-data]=0x0E;
+		rv.data[endptr-data]=TOKEN_ZXFLOAT;
 		zxfloat(rv.data+1+(endptr-data), num);
 	}
 	// TODO: HEX, OCT
@@ -669,7 +711,7 @@ token gettoken(char *data)
 		}
 		if((!s) || ((s==1) && (i==2)))
 		{
-			rv.tok=s+1;
+			rv.tok=s?TOKEN_VARSTR:TOKEN_VAR;
 			rv.data=strdup(data);
 			rv.data[i]=0;
 			return(rv);
