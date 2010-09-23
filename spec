@@ -4,6 +4,7 @@ bast - ZX Basic (and Z80 assembler) text to tape
 
 SYNOPSIS
 bast {[-b] <basfile> | -l <linkobj> | -a <asmfile> | -I <incpath> | -I0 | -L <linkpath> | -L0 | -W[-] <warning> | <other options>}* {-o <outobj> | -oi | -t <outtap>}
+bast {-h|--help|-V|--version}
 
 OPTIONS CONTROLLING SOURCE FILES
 [-b] <basfile>		any argument not beginning with a dash which is not preceded by a specifier (such as -l, -I, -t etc.), or any argument preceded by the specifier -b, is treated as a BASIC file to be read.  If more than one such file appears, they will be appear on the tape in the order of their appearance

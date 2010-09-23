@@ -6,8 +6,11 @@ AWK ?= awk
 
 all: bast test.tap
 
-bast: bast.c tokens.o tokens.h
+bast: bast.c tokens.o tokens.h version.h
 	$(CC) $(CFLAGS) -o bast bast.c tokens.o -lm
+
+version.h: version
+	./gitversion
 
 tokens.o: tokens.c tokens.h addtokens.c
 

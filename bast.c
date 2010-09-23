@@ -13,6 +13,14 @@
 #include <math.h>
 
 #include "tokens.h"
+#include "version.h"
+
+#define VERSION_MSG " %s %hhu.%hhu.%hhu%s%s\n\
+ Copyright (C) 2010 Edward Cree.\n\
+ License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
+ This is free software: you are free to change and redistribute it.\n\
+ There is NO WARRANTY, to the extent permitted by law.\n\
+ Compiler was %s\n", "bast", VERSION_MAJ, VERSION_MIN, VERSION_REV, VERSION_TXT[0]?"-":"", VERSION_TXT, CC_VERSION
 
 typedef struct
 {
@@ -111,7 +119,12 @@ int main(int argc, char *argv[])
 			varg="/dev/stdin";
 		if(*varg=='-')
 		{
-			if(strcmp(varg, "-b")==0)
+			if(strcmp(varg, "-V")==0)
+			{
+				printf(VERSION_MSG);
+				return(EXIT_SUCCESS);
+			}
+			else if(strcmp(varg, "-b")==0)
 				state=1;
 			else if(strcmp(varg, "-t")==0)
 				state=2;
@@ -451,7 +464,10 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
+	fprintf(stderr, "bast: Linker passed all segments\n");
 	/* END: LINKER & LABELS */
+	
+	/* TODO: CREATE OUTPUT */
 	
 	return(EXIT_SUCCESS);
 }
