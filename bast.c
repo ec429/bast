@@ -1288,6 +1288,7 @@ void buildbas(bas_seg *bas, bool write) // if write is false, we just compute of
 										int l;
 										for(l=0;l<((bin_seg *)bas->basic[i].tok[j].data2)->nbytes;l++)
 											append_char(&line, &ll, &li, 0);
+										((bin_seg *)bas->basic[i].tok[j].data2)->org=bas->basic[i].offset+1;
 									}
 								}
 							break;
