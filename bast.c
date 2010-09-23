@@ -656,7 +656,51 @@ char * fgetl(FILE *fp)
 			break;
 		if(c!=0)
 		{
-			append_char(&lout, &l, &i, c);
+			if(c=='\\')
+			{
+				signed int d=fgetc(fp);
+				if((d==EOF)||(d=='\n'))
+				{
+					append_char(&lout, &l, &i, c);
+					break;
+				}
+				else if(d=='\\')
+				{
+					append_char(&lout, &l, &i, d);
+				}
+				else if(!isxdigit(d))
+				{
+					append_char(&lout, &l, &i, c);
+					append_char(&lout, &l, &i, d);
+				}
+				else
+				{
+					signed int e=fgetc(fp);
+					if((e==EOF)||(e=='\n'))
+					{
+						append_char(&lout, &l, &i, c);
+						append_char(&lout, &l, &i, d);
+						break;
+					}
+					else if(!isxdigit(e))
+					{
+						append_char(&lout, &l, &i, c);
+						append_char(&lout, &l, &i, d);
+						append_char(&lout, &l, &i, e);
+					}
+					else
+					{
+						char x[3]={d, e, 0};
+						unsigned int h;
+						sscanf(x, "%02x", &h);
+						append_char(&lout, &l, &i, h&0xFF);
+					}
+				}
+			}
+			else
+			{
+				append_char(&lout, &l, &i, c);
+			}
 		}
 	}
 	return(lout);
