@@ -846,9 +846,11 @@ token gettoken(char *data, int *bt)
 	int i;
 	for(i=0;i<ntokens;i++)
 	{
-		if(strcasecmp(data, tokentable[i].text)==0)
+		size_t s=strcspn(data, isalpha(*data)?" \t\n0123456789":" \t\nabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+		if((data[s]) && (s==strlen(tokentable[i].text)) && strncasecmp(data, tokentable[i].text, s)==0)
 		{
 			rv.tok=tokentable[i].tok;
+			*bt=strlen(data+s);
 			return(rv);
 		}
 	}
@@ -861,9 +863,13 @@ token gettoken(char *data, int *bt)
 			if(!isalpha(data[i]))
 			{
 				if(data[i]=='$')
-					s=1;
+				{
+					s=1;i++;
+				}
 				else
+				{
 					s=i?0:2;
+				}
 				break;
 			}
 			i++;
@@ -873,7 +879,7 @@ token gettoken(char *data, int *bt)
 			rv.tok=s?TOKEN_VARSTR:TOKEN_VAR;
 			rv.data=strdup(data);
 			rv.data[i]=0;
-			*bt=1;
+			*bt=strlen(data+i);
 			return(rv);
 		}
 	}
