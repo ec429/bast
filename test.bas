@@ -1,7 +1,7 @@
 #pragma name test
 #pragma line start
 #pragma renum
-.%start
+.start
 	let i=0
 	print "Hello,\
  world!"

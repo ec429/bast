@@ -37,7 +37,7 @@ SOURCE FILE DIRECTIVES (BAS)
 <num> #rasm				As #asm but compiles into a BASIC REM statement instead of a BINARY segment.  The code within should be relocatable.  <num> is the linenumber (technically #rasm is a statement).  If the binary has a Name (eg. from #pragma name), it is ignored
 
 OTHER SOURCE FILE NON-BASIC ENTITIES
-.<label>				A label (may only occur in a labelled source file, ie. not a numbered one).  <label> must match "[[:alpha:]][[:alnum:]_]*"; that is, it must start with a letter (either case) and consist of letters, underscores and numbers only
+.<label>				A label (may only occur in a labelled source file, ie. not a numbered one).  <label> must match "[[:alpha:]][[:alnum:]_]*"; that is, it must start with a letter (either case) and consist of letters, underscores and numbers only.  Labels must occur at the start of line; that is, they may not be preceded by whitespace.  They should be followed by a newline
 	%<label>			Within an expression, is replaced by the line number of label <label>, which need not be in the same source file (and therefore this entity may occur in numbered source files)
 	HEX <hex>			Within an expression, is replaced by the decimal value of hexadecimal <hex> (ie. like BIN).  E.g. "HEX 1FF" -> "511"
 	0x<hex>				As HEX <hex>

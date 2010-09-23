@@ -43,6 +43,7 @@ typedef struct
 {
 	int nlines;
 	basline *basic;
+	int blines; // number of *actual* BASIC lines (as opposed to .labels, #directives etc.)
 	int line; // #pragma line? 0:NO, >0:linenumber, <0:label
 	char *lline; // label for #pragma line if line<0 
 	int renum; // #pragma renum?  0:NO, 1:YES but not done yet, 2:YES and it's been done now
@@ -56,6 +57,19 @@ typedef struct
 	union {bas_seg bas; bin_seg bin;} data;
 }
 segment;
+
+typedef struct
+{
+	int seg; // segment
+	union // depends on segment.type
+	{
+		int line; // linenumber of BASIC line
+		off_t offset; // offset of M/C label within segment
+	}
+	ptr; // pointer within that segment
+	char *text; // label text
+}
+label;
 
 #define LOC		"%s:%u"
 #define LOCARG	inbas[fbas], fline
@@ -72,6 +86,8 @@ void basfree(basline b);
 void tokenise(basline *b, char **inbas, int fbas);
 token gettoken(char *data);
 void zxfloat(char *buf, double value);
+bool isvalidlabel(char *text);
+void addlabel(int *nlabels, label **labels, label lbl);
 
 int main(int argc, char *argv[])
 {
@@ -282,7 +298,7 @@ int main(int argc, char *argv[])
 				free(line);
 			}
 		}
-		fprintf(stderr, "bast: BASIC segment '%s', read %u lines (logical)\n", curr->name, curr->data.bas.nlines);
+		fprintf(stderr, "bast: BASIC segment '%s', read %u physical lines\n", curr->name, curr->data.bas.nlines);
 	}
 	
 	/* END: READ BASIC FILES */
@@ -292,13 +308,14 @@ int main(int argc, char *argv[])
 	/* TODO: fork the assembler for each #[r]asm/#endasm block */
 	
 	/* TOKENISE BASIC SEGMENTS */
-	if(ninbas)
+	if(ninbas && outtype==TAPE)
 	{
 		int i;
 		for(i=0;i<nsegs;i++)
 		{
 			if(data[i].type==BASIC)
 			{
+				data[i].data.bas.blines=0;
 				fprintf(stderr, "bast: tokenising BASIC segment %s\n", data[i].name);
 				int j;
 				for(j=0;j<data[i].data.bas.nlines;j++)
@@ -306,13 +323,74 @@ int main(int argc, char *argv[])
 					err=false;
 					fprintf(stderr, "bast: tokenising line %s\n", data[i].data.bas.basic[j].text);
 					tokenise(&data[i].data.bas.basic[j], inbas, i);
+					if(data[i].data.bas.basic[j].ntok) data[i].data.bas.blines++;
 					if(err) return(EXIT_FAILURE);
 				}
-				fprintf(stderr, "bast: Tokenised BASIC segment %s\n", data[i].name);
+				fprintf(stderr, "bast: Tokenised BASIC segment %s (%u logical lines)\n", data[i].name, data[i].data.bas.blines);
 			}
 		}
 	}
 	/* END: TOKENISE BASIC SEGMENTS */
+	
+	/* LINKER & LABELS */
+	// TODO PASS 1: Find labels, renumber labelled BASIC sources
+	int nlabels=0;
+	label * labels=NULL;
+	int i;
+	for(i=0;i<nsegs;i++)
+	{
+		fprintf(stderr, "bast: Linker (Pass 1): %s\n", data[i].name);
+		switch(data[i].type)
+		{
+			case BASIC:;
+				int num=0;
+				if(data[i].data.bas.renum==1)
+				{
+					num=10;
+					while(data[i].data.bas.blines*num>9999)
+					{
+						num--;
+						if((num==7)||(num==9))
+							num--;
+					}
+					if(!num)
+					{
+						fprintf(stderr, "bast: Renumber: Couldn't fit %s into 9999 lines\n", data[i].name);
+						return(EXIT_FAILURE);
+					}
+					fprintf(stderr, "bast: Renumber: BASIC segment %s, spacing %u\n", data[i].name, num);
+				}
+				int dnum=num;
+				int j;
+				for(j=0;j<data[i].data.bas.nlines;j++)
+				{
+					if(data[i].data.bas.basic[j].ntok)
+					{
+						data[i].data.bas.basic[j].number=num;
+						num+=dnum;
+					}
+					else if(*data[i].data.bas.basic[j].text=='.')
+					{
+						if(isvalidlabel(data[i].data.bas.basic[j].text+1))
+						{
+							label lbl;
+							lbl.text=strdup(data[i].data.bas.basic[j].text+1);
+							lbl.seg=i;
+							lbl.ptr.line=num;
+							addlabel(&nlabels, &labels, lbl);
+						}
+					}
+				}
+				if(num) data[i].data.bas.renum=2;
+			break;
+			default:
+				fprintf(stderr, "bast: Linker: Bad segment-type %u\n", data[i].type);
+				return(EXIT_FAILURE);
+			break;
+		}
+	}
+	// TODO PASS 2: Apply labels
+	/* END: LINKER & LABELS */
 	
 	return(EXIT_SUCCESS);
 }
@@ -477,6 +555,11 @@ void tokenise(basline *b, char **inbas, int fbas)
 						tl=0;
 						if(curtok) free(curtok);
 						curtok=NULL;
+						if(dat.tok==0xEA) // REM token; eat the rest of the line (as token.data)
+						{
+							b->tok[b->ntok-1].data=strdup(ptr);
+							ptr+=strlen(ptr);
+						}
 						break;
 					}
 				}
@@ -610,5 +693,25 @@ void zxfloat(char *buf, double value)
 		buf[2]=mantissa>>8;
 		buf[3]=mantissa;
 		buf[4]=ex+128;
+	}
+}
+
+bool isvalidlabel(char *text)
+{
+	if(!isalpha(*text))
+		return(false);
+	size_t s=strspn(text, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
+	return(!text[s]);
+}
+
+void addlabel(int *nlabels, label **labels, label lbl)
+{
+	int nl=(*nlabels)+1;
+	label *ll=(label *)realloc(*labels, nl*sizeof(label));
+	if(ll)
+	{
+		*nlabels=nl;
+		*labels=ll;
+		ll[nl-1]=lbl;
 	}
 }
