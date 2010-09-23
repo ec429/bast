@@ -567,9 +567,11 @@ int main(int argc, char *argv[])
 								// TODO limit label scope to this file & the files it has #imported
 								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
 								{
+									fprintf(stderr, "bast: Linker: expanded %%%s", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
 									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
 									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", labels[l].line);
+									fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
 									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].line);
 									break;
@@ -589,40 +591,11 @@ int main(int argc, char *argv[])
 								// TODO limit label scope to this file & the files it has #imported
 								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
 								{
-									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
-									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
-									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
-									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
-									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
-									break;
-								}
-							}
-							if(l==nlabels)
-							{
-								fprintf(stderr, "bast: Linker: Undefined label %s\n\t"LOC"\n", data[i].data.bas.basic[j].tok[k].data, data[i].name, j);
-								return(EXIT_FAILURE);
-							}
-						}
-					}
-				}
-				for(j=0;j<data[i].data.bas.nlines;j++)
-				{
-					int k;
-					for(k=0;k<data[i].data.bas.basic[j].ntok;k++)
-					{
-						if(data[i].data.bas.basic[j].tok[k].tok==TOKEN_PTRLBL)
-						{
-							int l;
-							for(l=0;l<nlabels;l++)
-							{
-								// TODO limit label scope to this file & the files it has #imported
-								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
-								{
 									fprintf(stderr, "bast: Linker: expanded @%s", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
 									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
-									sprintf(data[i].data.bas.basic[j].tok[k].data, "%u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
-									fprintf(stderr, " to %u\n", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
+									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
+									fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
 									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
 									break;
@@ -636,7 +609,6 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
-				
 			break;
 			default:
 				fprintf(stderr, "bast: Linker: Internal error: Bad segment-type %u\n", data[i].type);
@@ -1085,7 +1057,7 @@ token gettoken(char *data, int *bt)
 			rv.data=strdup(data+1);
 			rv.data[sp]=0;
 			rv.tok=TOKEN_LABEL;
-			*bt=strlen(data+sp+2);
+			*bt=strlen(data+sp+1);
 			return(rv);
 		}
 	}
@@ -1097,7 +1069,7 @@ token gettoken(char *data, int *bt)
 			rv.data=strdup(data+1);
 			rv.data[sp]=0;
 			rv.tok=TOKEN_PTRLBL;
-			*bt=strlen(data+sp+2);
+			*bt=strlen(data+sp+1);
 			return(rv);
 		}
 	}

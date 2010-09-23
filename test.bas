@@ -4,7 +4,7 @@
 .start
 	let i=0
 .loop
-	print "Hello,\
+	print i+1;".";tab 4;"Hello,\
  world!"
 	let i=i+1
 	if i<10 then goto %loop
