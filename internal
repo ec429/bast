@@ -1,0 +1,6 @@
+INTERNAL REPRESENTATIONS
+
+Tokenisation (token.tok)
+	0x0E	ZX floating point number (full representation in token.data is (decimal)\0x0E(ZXfloat[5])
+	0x0F	String (contents in token.data)
+	0xA3-0xFF: ZX Basic multi-character tokens (from x-tok | mkaddtokens.awk)

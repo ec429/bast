@@ -14,6 +14,8 @@ void mktoktbl(void)
 	ntokens=0;
 	tokentable=NULL;
 	#include "addtokens.c"
+	addtokd("GOTO", 0xEC);  // alias GOTO -> GO TO
+	addtokd("GOSUB", 0xED); // alias GOSUB -> GO SUB
 	addtokd("+", '+');
 	addtokd("-", '-');
 	addtokd("*", '*');

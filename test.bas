@@ -2,6 +2,6 @@
 #pragma line start
 #pragma renum
 .%start
-print "Hello,\
+	print "Hello,\
  world!"
 goto %start

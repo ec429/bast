@@ -15,6 +15,7 @@ typedef struct
 	char *text;
 	unsigned char tok; // multi-character tokens are in range 0xA3-0xFF.  0xA3 SPECTRUM and 0xA4 PLAY for 128k only
 	// argument format / lexical rules are handled separately (if at all)
+	char *data; // ancillary data; used when parsing (not used in token definitions)
 }
 token;
 

@@ -17,7 +17,7 @@ tokens: toktbl x-tok
 x-tok: x-tok.c
 	$(CC) $(CFLAGS) -o x-tok x-tok.c
 
-addtokens.c: tokens
+addtokens.c: tokens mkaddtokens.awk
 	$(AWK) -f mkaddtokens.awk < tokens > addtokens.c
 
 %.o: %.c %.h

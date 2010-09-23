@@ -17,9 +17,8 @@ typedef struct
 	int sline; // source linenumber (for diagnostics)
 	int number; // line number (filled in either by tokeniser or by renum); if <1, NZ if should be renumbered
 	char *text; // raw text
-	int tokl; // init_char's l for tok
-	int toki; // init_char's i for tok
-	char *tok; // text after tokenisation (warning, may contain embedded \0)
+	int ntok; // number of tokens in line
+	token *tok; // results of tokenisation
 }
 basline;
 
@@ -69,9 +68,14 @@ int addbasline(int *nlines, basline **basic, char *line);
 segment *addsegment(int *nsegs, segment **data);
 void basfree(basline b);
 void tokenise(basline *b, char **inbas, int fbas);
+token gettoken(char *data);
 
 int main(int argc, char *argv[])
 {
+	/* SET UP TABLES ETC */
+	mktoktbl();
+	/* END: SET UP TABLES ETC */
+	
 	/* PARSE ARGUMENTS */
 	int ninbas=0;
 	char **inbas=NULL;
@@ -397,8 +401,7 @@ int addbasline(int *nlines, basline **basic, char *line)
 		nb[nl-1].sline=0;
 		nb[nl-1].number=0;
 		nb[nl-1].text=strdup(line);
-		nb[nl-1].tokl=0;
-		nb[nl-1].toki=0;
+		nb[nl-1].ntok=0;
 		nb[nl-1].tok=NULL;
 		return(0);
 	}
@@ -438,37 +441,74 @@ void tokenise(basline *b, char **inbas, int fbas)
 	{
 		int fline=b->sline;
 		if(b->tok) free(b->tok);
+		b->tok=NULL;
+		b->ntok=0;
 		if(b->text && !strchr("#.\n", *b->text))
 		{
-			init_char(&b->tok, &b->tokl, &b->toki);
 			char *ptr=b->text;
 			int tl=0;
-			int l,i;
-			while(ptr[tl])
+			int l=0,i;
+			while(*ptr)
 			{
+				while((*ptr==' ')||(*ptr=='\t'))
+					ptr++;
+				if(!*ptr)
+					break;
+				tl=0;
 				char *curtok;
 				init_char(&curtok, &l, &i);
 				while(ptr[tl])
 				{
 					append_char(&curtok, &l, &i, ptr[tl++]);
-					if(0) // token is recognised?
+					fprintf(stderr, "gettoken(%s)", curtok);
+					token dat=gettoken(curtok);
+					fprintf(stderr, "\t= %02X\n", dat.tok);
+					if(dat.tok) // token is recognised?
 					{
 						ptr+=tl;
 						tl=0;
+						break;
 					}
 				}
+				if(!ptr[tl])
+					break;
 				if(curtok) free(curtok);
 			}
-			if(l)
+			if(tl)
 			{
 				fprintf(stderr, "bast: Failed to tokenise '%s'\n\t"LOC"\n", ptr, LOCARG);
 				err=true;
 			}
 		}
-		else
+	}
+}
+
+token gettoken(char *data)
+{
+	token rv;
+	rv.text=data;
+	rv.tok=0;
+	rv.data=NULL;
+	if(*data=='"')
+	{
+		char *sm=strchr(data+1, '"');
+		if(sm && !sm[1])
 		{
-			b->tok=NULL;
-			b->tokl=b->toki=0;
+			rv.data=strdup(data+1);
+			sm=strchr(rv.data, '"');
+			if(sm) *sm=0;
+			rv.tok=0xF;
+			return(rv);
 		}
 	}
+	int i;
+	for(i=0;i<ntokens;i++)
+	{
+		if(strcasecmp(data, tokentable[i].text)==0)
+		{
+			rv.tok=tokentable[i].tok;
+			return(rv);
+		}
+	}
+	return(rv);
 }
