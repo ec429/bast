@@ -29,6 +29,7 @@ void mktoktbl(void)
 	addtokd(",", ',');
 	addtokd(";", ';');
 	addtokd(":", ':');
+	addtokd("#", '#');
 }
 
 void addtokd(char *text, unsigned char tok)
