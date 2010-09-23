@@ -1007,7 +1007,7 @@ token gettoken(char *data, int *bt)
 
 void zxfloat(char *buf, double value)
 {
-	if((fabs(value-floor(value+0.5))<value*1e-12) && (fabs(value)<65535.5))
+	if((fabs(value-floor(value+0.5))<=fabs(value)*1e-12) && (fabs(value)<65535.5))
 	{
 		int i=floor(value+0.5);
 		// "small integer"
