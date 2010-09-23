@@ -1,0 +1,25 @@
+bast - ZX Basic tape compiler - readme
+	bast reads text files containing ZX Basic programs, and creates a tape file (.TAP format) with those programs saved on it
+
+Usage:
+	bast [[-b] <basfile>]* -t <tapfile> [--emu]
+
+Each <basfile> specifies a BASIC file to be saved onto the tape.  If <basfile> begins with a '-' you will need to use the -b specifier
+<tapfile> specifies the output TAP file
+--emu tells bast to open the created TAP file in an emulator once compilation has finished.  The command used is obtained by evaluating the environment variable $EMU and replacing each instance of the percent-sign '%' with the filename.  For instance, to use Phil Kendall's FUSE, you might type "export EMU=fuse\ %" (without quotes) at your shell prompt
+
+Source file directives:
+	#pragma <pr> [<args>]	#pragma directives must precede all other directives and all source lines; only blank lines may precede a #pragma.  They must also be at start-of-line (ie. they may not be preceded by spaces or tabs)
+	#pragma name <name>		If eg. TAP output is produced, <name> will be used as the Name of the segment resulting from this file
+	#pragma line <line>		If eg. TAP output is produced, this file will be stored as though saved with 'SAVE "<name>" LINE <line>' (i.e., <line> is the autorun line)
+	#pragma renum			This file is not numbered (only labelled) and should be auto-numbered.  #pragma renum and line-numbers may not be mixed in a single source file: if you are going to auto-number, don't hardcode numbers in eg. GOTOs as these will NOT be updated.  The numberings of separate BASIC segments are completely unrelated; don't expect to be able to MERGE them
+
+Other source file non-basic entities:
+	.<label>				A label.  <label> must match "[[:alpha:]][[:alnum:]_]*"; that is, it must start with a letter (either case) and consist of letters, underscores and numbers only.  Labels must occur at the start of line; that is, they may not be preceded by whitespace.  They should be followed by a newline
+	%<label>				Within an expression, is replaced by the line number of label <label>, which need not be in the same source file
+
+Compilation process
+Step 0: Director.  Directives are parsed and where possible acted upon
+Step 1: Tokeniser.  Each line of BASIC is split into a series of tokens (such as KEYWORDS (characters 0xA3 to 0xFF) and numbers (in Sinclair floating point notation: 0x0E + 4mantissa + 1exponent, or 0E 00 {00|FF}sign LSB MSB 00 for small integers))
+Step 2: Linker.  If a segment has no name, one will be generated for it of the form basN or binN where N starts from 0.  Renumbering is performed if directed.  Labels are translated
+Step 3: Output.  Whichever kind of output is required (objects, tape, etc), is produced

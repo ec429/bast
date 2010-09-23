@@ -1,10 +1,14 @@
 # Makefile for bast, ZX Basic compiler
 
+PREFIX ?= /usr/local
 CC ?= gcc
 CFLAGS ?= -Wall
 AWK ?= awk
 
 all: bast test.tap
+
+install: bast
+	install -D bast $(PREFIX)/bin/bast
 
 bast: bast.c tokens.o tokens.h version.h
 	$(CC) $(CFLAGS) -o bast bast.c tokens.o -lm
