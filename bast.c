@@ -567,8 +567,8 @@ int main(int argc, char *argv[])
 						break;
 					}
 					// write data block
-					fputc(dbl, fout);
-					fputc(dbl>>8, fout);
+					fputc((dbl+2), fout);
+					fputc((dbl+2)>>8, fout);
 					fputc(0xFF, fout); // DATA
 					cksum=0xFF;
 					int j;
@@ -579,6 +579,7 @@ int main(int argc, char *argv[])
 					}
 					fputc(cksum, fout);
 					free(dblock);
+					fprintf(stderr, "bast: Wrote segment %s\n", data[i].name);
 				}
 			}
 			else
@@ -608,7 +609,7 @@ char * fgetl(FILE *fp)
 		c=fgetc(fp);
 		if((c==EOF)||(c=='\n'))
 			break;
-		if(c!=0)
+		if(c!=0) // Todo: detect STRING status for the special munging rules
 		{
 			if(strchr("=<>[]()+-*/^,;:", c)) // Special munging rule: add a space before any =, < or >, [ or ], ( or ), +, -, *, /, ^, ,, ;, :
 				append_char(&lout, &l, &i, ' ');
@@ -808,7 +809,7 @@ token gettoken(char *data)
 		if(sm && !sm[1])
 		{
 			rv.data=strdup(data+1);
-			rv.data[sm-data]=0;
+			rv.data[sm-data-1]=0;
 			rv.tok=TOKEN_STRING;
 			return(rv);
 		}
@@ -825,21 +826,22 @@ token gettoken(char *data)
 		}
 	}
 	// test for number
-	char *endptr;
-	double num=strtod(data, &endptr);
-	if(strchr(" \t\n", *endptr))
-	{
-		// 0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
-		rv.tok=TOKEN_ZXFLOAT;
-		rv.data=(char *)malloc(endptr-data+1);
-		strncpy(rv.data, data, endptr-data);
-		rv.data[endptr-data]=0;
-		rv.data2=(char *)malloc(5);
-		zxfloat(rv.data2, num);
-	}
 	// TODO: HEX, OCT
 	if(strchr(" \t\n", data[strlen(data)-1]))
 	{
+		char *endptr;
+		double num=strtod(data, &endptr);
+		if(strchr(" \t\n", *endptr))
+		{
+			// 0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
+			rv.tok=TOKEN_ZXFLOAT;
+			rv.data=(char *)malloc(endptr-data+1);
+			strncpy(rv.data, data, endptr-data);
+			rv.data[endptr-data]=0;
+			rv.data2=(char *)malloc(5);
+			zxfloat(rv.data2, num);
+			return(rv);
+		}
 		// assume it's a variable
 		int i=0,s=0;
 		while(data[i])
@@ -995,5 +997,6 @@ void buildbas(int *dbl, char **dblock, bas_seg bas)
 			free(line);
 		}
 	}
+	*dbl=dbi;
 	exit:;
 }
