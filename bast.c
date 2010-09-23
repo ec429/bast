@@ -5,6 +5,8 @@
 	License: GNU GPL v3+
 */
 
+#define _GNU_SOURCE	// feature test macro
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -892,7 +894,7 @@ token gettoken(char *data, int *bt)
 	// test for number
 	char *endptr;
 	double num=strtod(data, &endptr);
-	if(*endptr && !strchr("0123456789.", *endptr) && (endptr!=data))
+	if(*endptr && !strchr("0123456789.eE", *endptr) && (endptr!=data))
 	{
 		// 0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
 		rv.tok=TOKEN_ZXFLOAT;
@@ -954,7 +956,7 @@ token gettoken(char *data, int *bt)
 
 void zxfloat(char *buf, double value)
 {
-	if((fabs(value-floor(value+0.5))<1e-12) && (fabs(value)<65535.5))
+	if((fabs(value-floor(value+0.5))<value*1e-12) && (fabs(value)<65535.5))
 	{
 		int i=floor(value+0.5);
 		// "small integer"
@@ -969,9 +971,8 @@ void zxfloat(char *buf, double value)
 	{
 		// 4mantissa + 1exponent
 		// m*2^(e-128)
-		int ex=1+floor(log(fabs(value))/M_LN2);
-		double mant=fabs(value)*exp(-ex*M_LN2);
-		long mantissa=floor(mant*exp(32*M_LN2)+0.5);
+		int ex=1+floor(log2(fabs(value)));
+		unsigned long mantissa=floor(fabs(value)*exp2(32-ex)+0.5);
 		buf[0]=ex+128;
 		buf[1]=((mantissa>>24)&0x7F)|((value<0)?0x80:0);
 		buf[2]=mantissa>>16;
