@@ -361,13 +361,22 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "bast: Renumber: BASIC segment %s, spacing %u\n", data[i].name, num);
 				}
 				int dnum=num;
+				int last=0;
 				int j;
 				for(j=0;j<data[i].data.bas.nlines;j++)
 				{
 					if(data[i].data.bas.basic[j].ntok)
 					{
-						data[i].data.bas.basic[j].number=num;
-						num+=dnum;
+						if(num)
+						{
+							data[i].data.bas.basic[j].number=num;
+							num+=dnum;
+						}
+						else
+						{
+							while(last<nlabels)
+								labels[last++].ptr.line=data[i].data.bas.basic[j].number;
+						}
 					}
 					else if(*data[i].data.bas.basic[j].text=='.')
 					{
