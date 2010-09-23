@@ -912,7 +912,6 @@ token gettoken(char *data, int *bt)
 	{
 		if(data[strlen(tokentable[i].text)] && !strncasecmp(data, tokentable[i].text, strlen(tokentable[i].text)))
 		{
-			fprintf(stderr, "%c\n", data[strlen(tokentable[i].text)]);
 			if(isalpha(*data)&&(!strchr(" ([:+-*/^\t\n", data[strlen(tokentable[i].text)])))
 				continue;
 			if(strchr("<>=", tokentable[i].tok)&&strchr("<>=", data[strlen(tokentable[i].text)]))
