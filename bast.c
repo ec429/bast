@@ -60,6 +60,9 @@ typedef struct
 	int line; // #pragma line? 0:NO, >0:linenumber, <0:label
 	char *lline; // label for #pragma line if line<0 
 	int renum; // #pragma renum?  0:NO, 1:YES but not done yet, 2:YES and it's been done now
+	int rnstart;
+	int rnoffset;
+	int rnend;
 }
 bas_seg;
 
@@ -307,12 +310,38 @@ int main(int argc, char *argv[])
 										}
 										else
 										{
-											fprintf(stderr, "bast: #pragma line missing argument\n\t"LOC"\n", LOCARG);
+											fprintf(stderr, "bast: Warning: #pragma line missing argument\n\t"LOC"\n", LOCARG);
 										}
 									}
 									else if(strcmp(prgm, "renum")==0)
 									{
 										curr->data.bas.renum=1;
+										curr->data.bas.rnstart=0;
+										curr->data.bas.rnoffset=0;
+										curr->data.bas.rnend=0;
+										char *arg=strtok(NULL, " ");
+										while(arg)
+										{
+											int val=0;
+											if(*arg)
+												sscanf(arg+1, "%u", &val);
+											switch(*arg)
+											{
+												case '=':
+													curr->data.bas.rnstart=val;
+												break;
+												case '+':
+													curr->data.bas.rnoffset=val;
+												break;
+												case '-':
+													curr->data.bas.rnend=val;
+												break;
+												default:
+													fprintf(stderr, "bast: Warning: #pragma renum bad argument %s\n\t"LOC"\n", arg, LOCARG);
+												break;
+											}
+											arg=strtok(NULL, " ");
+										}
 									}
 									else
 									{
@@ -381,24 +410,25 @@ int main(int argc, char *argv[])
 		switch(data[i].type)
 		{
 			case BASIC:;
-				int num=0;
+				int num=0,dnum=0;
 				if(data[i].data.bas.renum==1)
 				{
-					num=10;
-					while(data[i].data.bas.blines*num>9999)
+					dnum=data[i].data.bas.rnoffset?data[i].data.bas.rnoffset:10;
+					int end=data[i].data.bas.rnend?data[i].data.bas.rnend:9999;
+					while(data[i].data.bas.blines*dnum>end)
 					{
-						num--;
-						if((num==7)||(num==9))
-							num--;
+						dnum--;
+						if((dnum==7)||(dnum==9))
+							dnum--;
 					}
-					if(!num)
+					if(!dnum)
 					{
-						fprintf(stderr, "bast: Renumber: Couldn't fit %s into 9999 lines\n", data[i].name);
+						fprintf(stderr, "bast: Renumber: Couldn't fit %s into available lines\n", data[i].name);
 						return(EXIT_FAILURE);
 					}
-					fprintf(stderr, "bast: Renumber: BASIC segment %s, spacing %u\n", data[i].name, num);
+					num=data[i].data.bas.rnstart?data[i].data.bas.rnstart:dnum;
+					fprintf(stderr, "bast: Renumber: BASIC segment %s, start %u, spacing %u, end <=%u\n", data[i].name, num, dnum, end);
 				}
-				int dnum=num;
 				int last=0;
 				int j;
 				for(j=0;j<data[i].data.bas.nlines;j++)
@@ -438,7 +468,7 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
-				if(num) data[i].data.bas.renum=2;
+				if(data[i].data.bas.renum) data[i].data.bas.renum=2;
 			break;
 			default:
 				fprintf(stderr, "bast: Linker: Internal error: Bad segment-type %u\n", data[i].type);

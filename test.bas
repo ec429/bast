@@ -1,6 +1,6 @@
 #pragma name test
 #pragma line start
-#pragma renum
+#pragma renum =10 +5
 .start
 	let i=0
 .loop
