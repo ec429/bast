@@ -246,19 +246,19 @@ int main(int argc, char *argv[])
 					while(line[strlen(line)-1]=='\\') // line splicing
 					{
 						char *second=fgetl(fp);
-						if(!second) break;
+						if(!second) continue;
 						dfl++;
 						if(!*second)
 						{
 							free(second);
-							break;
+							continue;
 						}
 						line[strlen(line)-1]=0;
 						char *splice=(char *)realloc(line, strlen(line)+strlen(second)+2);
 						if(!splice)
 						{
 							free(second);
-							break;
+							continue;
 						}
 						line=splice;
 						strcat(splice, second);
@@ -652,14 +652,14 @@ char * fgetl(FILE *fp)
 	while(!feof(fp))
 	{
 		c=fgetc(fp);
-		if((c==EOF)||(c=='\n'))
+		if((c==EOF)||(c=='\n')||(c=='\r'))
 			break;
 		if(c!=0)
 		{
 			if(c=='\\')
 			{
 				signed int d=fgetc(fp);
-				if((d==EOF)||(d=='\n'))
+				if((d==EOF)||(d=='\n')||(d=='\r'))
 				{
 					append_char(&lout, &l, &i, c);
 					break;
@@ -676,7 +676,7 @@ char * fgetl(FILE *fp)
 				else
 				{
 					signed int e=fgetc(fp);
-					if((e==EOF)||(e=='\n'))
+					if((e==EOF)||(e=='\n')||(e=='\r'))
 					{
 						append_char(&lout, &l, &i, c);
 						append_char(&lout, &l, &i, d);
