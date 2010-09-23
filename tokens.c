@@ -26,8 +26,6 @@ void mktoktbl(void)
 	addtokd("<", '<');
 	addtokd("(", '(');
 	addtokd(")", ')');
-	addtokd("[", '[');
-	addtokd("]", ']');
 	addtokd(",", ',');
 	addtokd(";", ';');
 	addtokd(":", ':');
