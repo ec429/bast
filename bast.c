@@ -109,6 +109,7 @@ void addlabel(int *nlabels, label **labels, label lbl);
 void buildbas(bas_seg *bas, bool write);
 void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name);
 
+bool debug=false;
 bool Ocutnumbers=false;
 
 int main(int argc, char *argv[])
@@ -146,6 +147,14 @@ int main(int argc, char *argv[])
 			else if(strcmp(varg, "--no-emu")==0)
 			{
 				emu=false;
+			}
+			else if(strcmp(varg, "--debug")==0)
+			{
+				debug=true;
+			}
+			else if(strcmp(varg, "--no-debug")==0)
+			{
+				debug=false;
 			}
 			else if(strcmp(varg, "-b")==0)
 				state=1;
@@ -406,12 +415,12 @@ int main(int argc, char *argv[])
 			if(data[i].type==BASIC)
 			{
 				data[i].data.bas.blines=0;
-				fprintf(stderr, "bast: tokenising BASIC segment %s\n", data[i].name);
+				fprintf(stderr, "bast: Tokenising BASIC segment %s\n", data[i].name);
 				int j;
 				for(j=0;j<data[i].data.bas.nlines;j++)
 				{
 					err=false;
-					fprintf(stderr, "bast: tokenising line %s\n", data[i].data.bas.basic[j].text);
+					if(debug) fprintf(stderr, "bast: tokenising line %s\n", data[i].data.bas.basic[j].text);
 					tokenise(&data[i].data.bas.basic[j], inbas, i, data[i].data.bas.renum);
 					if(data[i].data.bas.basic[j].ntok) data[i].data.bas.blines++;
 					if(err) return(EXIT_FAILURE);
@@ -587,22 +596,22 @@ int main(int argc, char *argv[])
 								// TODO limit label scope to this file & the files it has #imported
 								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
 								{
-									fprintf(stderr, "bast: Linker: expanded %%%s", data[i].data.bas.basic[j].tok[k].data);
+									if(debug) fprintf(stderr, "bast: Linker: expanded %%%s", data[i].data.bas.basic[j].tok[k].data);
 									if(data[i].data.bas.basic[j].tok[k].index)
 									{
-										fprintf(stderr, "%s%02x", data[i].data.bas.basic[j].tok[k].index>0?"+":"-", abs(data[i].data.bas.basic[j].tok[k].index));
+										if(debug) fprintf(stderr, "%s%02x", data[i].data.bas.basic[j].tok[k].index>0?"+":"-", abs(data[i].data.bas.basic[j].tok[k].index));
 									}
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
 									if(Ocutnumbers)
 									{
 										data[i].data.bas.basic[j].tok[k].data=strdup(".");
-										fprintf(stderr, " to %u (cut)\n", labels[l].line+data[i].data.bas.basic[j].tok[k].index);
+										if(debug) fprintf(stderr, " to %u (cut)\n", labels[l].line+data[i].data.bas.basic[j].tok[k].index);
 									}
 									else
 									{
 										data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
 										sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", labels[l].line+data[i].data.bas.basic[j].tok[k].index);
-										fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
+										if(debug) fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									}
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
 									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].line+data[i].data.bas.basic[j].tok[k].index);
@@ -623,22 +632,22 @@ int main(int argc, char *argv[])
 								// TODO limit label scope to this file & the files it has #imported
 								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
 								{
-									fprintf(stderr, "bast: Linker: expanded @%s", data[i].data.bas.basic[j].tok[k].data);
+									if(debug) fprintf(stderr, "bast: Linker: expanded @%s", data[i].data.bas.basic[j].tok[k].data);
 									if(data[i].data.bas.basic[j].tok[k].index)
 									{
-										fprintf(stderr, "%s%02x", data[i].data.bas.basic[j].tok[k].index>0?"+":"-", abs(data[i].data.bas.basic[j].tok[k].index));
+										if(debug) fprintf(stderr, "%s%02x", data[i].data.bas.basic[j].tok[k].index>0?"+":"-", abs(data[i].data.bas.basic[j].tok[k].index));
 									}
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
 									if(Ocutnumbers)
 									{
 										data[i].data.bas.basic[j].tok[k].data=strdup(".");
-										fprintf(stderr, " to %u (cut)\n", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
+										if(debug) fprintf(stderr, " to %u (cut)\n", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
 									}
 									else
 									{
 										data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
 										sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
-										fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
+										if(debug) fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									}
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
 									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
@@ -1004,9 +1013,9 @@ void tokenise(basline *b, char **inbas, int fbas, int renum)
 					while(ptr[tl])
 					{
 						append_char(&curtok, &l, &i, ptr[tl++]);
-						fprintf(stderr, "gettoken(%s)", curtok);
+						if(debug) fprintf(stderr, "gettoken(%s)", curtok);
 						token dat=gettoken(curtok, &bt);
-						fprintf(stderr, "\t= %02X\n", dat.tok);
+						if(debug) fprintf(stderr, "\t= %02X\n", dat.tok);
 						if(dat.tok) // token is recognised?
 						{
 							b->ntok++;
@@ -1032,10 +1041,10 @@ void tokenise(basline *b, char **inbas, int fbas, int renum)
 				}
 				if(tl)
 				{
-					fprintf(stderr, "gettoken(%s\\n)", curtok);
+					if(debug) fprintf(stderr, "gettoken(%s\\n)", curtok);
 					append_char(&curtok, &l, &i, '\n');
 					token dat=gettoken(curtok, &bt);
-					fprintf(stderr, "\t= %02X\n", dat.tok);
+					if(debug) fprintf(stderr, "\t= %02X\n", dat.tok);
 					if(dat.tok) // token is recognised?
 					{
 						b->ntok++;

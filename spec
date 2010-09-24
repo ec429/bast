@@ -30,8 +30,9 @@ OPTIONS CONTROLLING THE TYPE OF OUTPUT
 -oi					As -o but write each BINARY segment into its own individual object file, named as '<name>.obj' where <name> is the segment's Name.  Don't write the linked files, only the assembled ones
 -t <outtap>			Creates a .TAP file of all the segments in order (first, files named on the command line, in order of appearance; then, segments resulting from directives, in the order in which those directives appeared.  #include does not create new segments; only #link and #asm do that)
 
-OPTION --EMU
---emu				Opens the created TAP file in an emulator: the command run is environment variable $EMU with % replaced by the filename.
+OTHER OPTIONS
+--[no-]debug		Emit verbose debugging info; trace the various steps in detail
+--[no-]emu			Opens the created TAP file in an emulator: the command run is environment variable $EMU with % replaced by the filename.
 
 --------------------------------------
 
