@@ -11,6 +11,7 @@
 \11\02*\11\07 automatic line-numbering      \
 \8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f
 .start
+	load "testbin" code 32768,4
 	let i=0
 .loop
 	print i+1;".";tab 4;"Hello,\
@@ -18,5 +19,5 @@
 	let i=i+1
 	if i<10 then goto %loop
 .object
-	~rlink test.obj
-	print \10\02 ink 2\10\00; usr @object+01
+	~link test.obj
+	print \10\02 ink 2\10\00; usr usr @object+01

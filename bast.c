@@ -158,6 +158,8 @@ int main(int argc, char *argv[])
 			}
 			else if(strcmp(varg, "-b")==0)
 				state=1;
+			else if(strcmp(varg, "-l")==0)
+				state=7;
 			else if(strcmp(varg, "-t")==0)
 				state=2;
 			else if(strcmp(varg, "-W")==0)
@@ -184,6 +186,14 @@ int main(int argc, char *argv[])
 					if(addinbas(&ninbas, &inbas, varg))
 					{
 						fprintf(stderr, "bast: Internal error: Failed to add %s to inbas list\n", varg);
+						return(EXIT_FAILURE);
+					}
+					state=0;
+				break;
+				case 7:
+					if(addinbas(&ninobj, &inobj, varg))
+					{
+						fprintf(stderr, "bast: Internal error: Failed to add %s to inobj list\n", varg);
 						return(EXIT_FAILURE);
 					}
 					state=0;
@@ -402,7 +412,34 @@ int main(int argc, char *argv[])
 	
 	/* END: READ BASIC FILES */
 	
-	/* TODO: READ OBJECT FILES */
+	/* READ OBJECT FILES */
+	int fobj;
+	for(fobj=0;fobj<ninobj;fobj++)
+	{
+		FILE *fp=fopen(inobj[fobj], "r");
+		if(!fp)
+		{
+			fprintf(stderr, "bast: Failed to open input file %s\n", inobj[fobj]);
+			return(EXIT_FAILURE);
+		}
+		segment *curr=addsegment(&nsegs, &data);
+		if(!curr)
+		{
+			fprintf(stderr, "bast: Internal error: failed to add segment for file %s\n", inobj[fobj]);
+			return(EXIT_FAILURE);
+		}
+		curr->name=(char *)malloc(10);
+		sprintf(curr->name, "bin%u", fobj);
+		curr->type=BINARY;
+		err=false;
+		bin_load(inobj[fobj], fp, &curr->data.bin, &curr->name);
+		if(err)
+		{
+			fprintf(stderr, "bast: Failed to load BINARY segment from file %s\n", inobj[fobj]);
+			return(EXIT_FAILURE);
+		}
+	}
+	/* END: READ OBJECT FILES */
 	
 	/* TODO: fork the assembler for each #[r]asm/#endasm block */
 	
@@ -546,6 +583,10 @@ int main(int argc, char *argv[])
 				}
 				if(data[i].data.bas.renum) data[i].data.bas.renum=2;
 			break;
+			case BINARY:
+				// TODO: export symbol table (we don't have symbols in object files yet)
+				// Nothing else on pass 1
+			break;
 			default:
 				fprintf(stderr, "bast: Linker: Internal error: Bad segment-type %u\n", data[i].type);
 				return(EXIT_FAILURE);
@@ -663,6 +704,26 @@ int main(int argc, char *argv[])
 					}
 				}
 			break;
+			case BINARY:
+				if(data[i].data.bin.nbytes)
+				{
+					int j;
+					for(j=0;j<data[i].data.bin.nbytes;j++)
+					{
+						switch(data[i].data.bin.bytes[j].type)
+						{
+							case BYTE:
+								// do nothing
+							break;
+							// TODO LBL, LBM (labelpointer parsing)
+							default:
+								fprintf(stderr, "bast: Linker: Bad byte-type %u\n\t%s+0x%04X\n", data[i].data.bin.bytes[j].type, data[i].name, j);
+								return(EXIT_FAILURE);
+							break;
+						}
+					}
+				}
+			break;
 			default:
 				fprintf(stderr, "bast: Linker: Internal error: Bad segment-type %u\n", data[i].type);
 				return(EXIT_FAILURE);
@@ -693,14 +754,14 @@ int main(int argc, char *argv[])
 					fputc(0x00, fout);
 					unsigned char cksum=0;
 					fputc(0x00, fout); // HEADER
+					int j;
+					char name[10];
 					switch(data[i].type)
 					{
 						case BASIC:
-							fputc(0, fout);
-							char name[10];
+							fputc(0, fout); // PROGRAM
 							memset(name, ' ', 10);
 							memcpy(name, data[i].name, min(10, strlen(data[i].name)));
-							int j;
 							for(j=0;j<10;j++)
 							{
 								fputc(name[j], fout);
@@ -734,25 +795,62 @@ int main(int argc, char *argv[])
 							fputc(data[i].data.bas.blen>>8, fout);
 							cksum^=data[i].data.bas.blen>>8;
 							fputc(cksum, fout);
+							// write data block
+							fputc((data[i].data.bas.blen+2), fout);
+							fputc((data[i].data.bas.blen+2)>>8, fout);
+							fputc(0xFF, fout); // DATA
+							cksum=0xFF;
+							for(j=0;j<data[i].data.bas.blen;j++)
+							{
+								fputc(data[i].data.bas.block[j], fout);
+								cksum^=data[i].data.bas.block[j];
+							}
+							fputc(cksum, fout);
+							free(data[i].data.bas.block);
+						break;
+						case BINARY:
+							fputc(3, fout); // CODE
+							cksum^=3;
+							memset(name, ' ', 10);
+							memcpy(name, data[i].name, min(10, strlen(data[i].name)));
+							for(j=0;j<10;j++)
+							{
+								fputc(name[j], fout);
+								cksum^=name[j];
+							}
+							fputc(data[i].data.bin.nbytes, fout);
+							cksum^=data[i].data.bin.nbytes&0xFF;
+							fputc(data[i].data.bin.nbytes>>8, fout);
+							cksum^=data[i].data.bin.nbytes>>8;
+							// Parameter 1 = address
+							fputc(data[i].data.bin.org, fout);
+							cksum^=data[i].data.bin.org&0xFF;
+							fputc(data[i].data.bin.org>>8, fout);
+							cksum^=data[i].data.bin.org>>8;
+							// Parameter 2 = 0x8000
+							fputc(0x00, fout);
+							fputc(0x80, fout);
+							cksum^=0x80;
+							fputc(cksum, fout);
+							// write data block
+							fputc((data[i].data.bin.nbytes+2), fout);
+							fputc((data[i].data.bin.nbytes+2)>>8, fout);
+							fputc(0xFF, fout); // DATA
+							cksum=0xFF;
+							for(j=0;j<data[i].data.bin.nbytes;j++)
+							{
+								fputc(data[i].data.bin.bytes[j].byte, fout);
+								cksum^=data[i].data.bin.bytes[j].byte;
+							}
+							fputc(cksum, fout);
+							free(data[i].data.bin.bytes);
 						break;
 						default:
 							fprintf(stderr, "bast: Internal error: Don't know how to make TAPE output of segment type %u\n", data[i].type);
 							return(EXIT_FAILURE);
 						break;
 					}
-					// write data block
-					fputc((data[i].data.bas.blen+2), fout);
-					fputc((data[i].data.bas.blen+2)>>8, fout);
-					fputc(0xFF, fout); // DATA
-					cksum=0xFF;
-					int j;
-					for(j=0;j<data[i].data.bas.blen;j++)
-					{
-						fputc(data[i].data.bas.block[j], fout);
-						cksum^=data[i].data.bas.block[j];
-					}
-					fputc(cksum, fout);
-					free(data[i].data.bas.block);
+					
 					fprintf(stderr, "bast: Wrote segment %s\n", data[i].name);
 				}
 				fclose(fout);
@@ -1265,13 +1363,13 @@ token gettoken(char *data, int *bt)
 			return(rv);
 		}
 	}
-	if((strncasecmp(data, "~rlink", 6)==0) && (data[strlen(data)-1]=='\n'))
+	if((strncasecmp(data, "~link", 5)==0) && (data[strlen(data)-1]=='\n'))
 	{
 		rv.tok=TOKEN_RLINK;
-		char *p=data+6;
+		char *p=data+5;
 		while(isspace(*p)) p++;
 		rv.data=strdup(p);
-		rv.data[strlen(data)-8]=0;
+		rv.data[strlen(data)-7]=0;
 		*bt=0;
 		return(rv);
 	}

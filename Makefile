@@ -34,4 +34,4 @@ addtokens.c: tokens mkaddtokens.awk
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 test.tap: bast test.bas
-	./bast -b test.bas -t test.tap -W all -O cut-numbers
+	./bast -b test.bas -l test.obj -t test.tap -W all -O cut-numbers
