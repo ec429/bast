@@ -15,6 +15,12 @@ OPTIONS CONTROLLING SOURCE FILES
 -L <linkpath>		adds an entry to the linking path (used for -l and #link when producing eg. TAP output)
 -L0					clears the linking path (including default entries)
 
+OPTIONS CONTROLLING OPTIMISATION (Todo: when there are lots, group them into optimisation 'levels', like -O 1, -O 2, -O s, etc.)
+-O <opti-name>		Enables optimisation <opti-name>
+-O- <opti-name>		Disables optimisation <opti-name>
+	optimisations:
+	-O cut-numbers	The text parts of floating point numbers are not stored.  Since the BASIC interpreter on the Spectrum only reads the numeric part (the five bytes after the 0x0E), the textual representation need not be supplied.  However, it is then difficult to edit the program on the Spectrum and listings do not make sense (as all the numbers appear to be missing)
+
 OPTIONS CONTROLLING WARNINGS
 -W all				Enables all warnings
 -W- all				Disables all warnings (generally -W- <warning> disables whatever -W <warning> enables)
