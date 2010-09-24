@@ -19,11 +19,13 @@ OPTIONS CONTROLLING OPTIMISATION (Todo: when there are lots, group them into opt
 -O <opti-name>		Enables optimisation <opti-name>
 -O- <opti-name>		Disables optimisation <opti-name>
 	optimisations:
-	-O cut-numbers	The text parts of floating point numbers are replaced with '.', which is much shorter.  Since the BASIC interpreter on the Spectrum only reads the numeric part (the five bytes after the 0x0E), the textual representation need not be supplied.  However, it is then difficult to edit the program on the Spectrum and listings do not make sense (as all the numbers appear to be missing).  By default this option is off
+-O cut-numbers		The text parts of floating point numbers are replaced with '.', which is much shorter.  Since the BASIC interpreter on the Spectrum only reads the numeric part (the five bytes after the 0x0E), the textual representation need not be supplied.  However, it is then difficult to edit the program on the Spectrum and listings do not make sense (as all the numbers appear to be missing).  Off by default
 
 OPTIONS CONTROLLING WARNINGS
 -W all				Enables all warnings
 -W- all				Disables all warnings (generally -W- <warning> disables whatever -W <warning> enables)
+	warnings:
+-W object-length	Warns if an object file is missing a length directive (*xxxx).  On by default
 
 OPTIONS CONTROLLING THE TYPE OF OUTPUT
 -o <outobj>			Strips out all BASIC, leaving only any machine code from -a, -l, #asm, or #link (but NOT #rasm or #rlink as these appear in the BASIC), and writes the result into an object file

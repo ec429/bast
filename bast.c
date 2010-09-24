@@ -110,6 +110,7 @@ void buildbas(bas_seg *bas, bool write);
 void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name);
 
 bool debug=false;
+bool Wobjlen=true;
 bool Ocutnumbers=false;
 
 int main(int argc, char *argv[])
@@ -208,7 +209,13 @@ int main(int argc, char *argv[])
 				case 4:
 					if(strcmp("all", varg)==0)
 					{
-						state=0; // we have no warnings so far, so we'll just ignore -W all
+						Wobjlen=flag;
+						state=0;
+					}
+					else if(strcmp("object-length", varg)==0)
+					{
+						Wobjlen=flag;
+						state=0;
 					}
 				break;
 				case 5:
@@ -1709,8 +1716,12 @@ void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name)
 		fclose(fp);
 		if(len && (len!=buf->nbytes))
 		{
-			fprintf(stderr, "bast: Linker (object): %s got bad count %u bytes of %u", fname, buf->nbytes, len);
+			fprintf(stderr, "bast: Linker (object): %s got bad count %u bytes of %u\n", fname, buf->nbytes, len);
 			err=true;
+		}
+		else if(!len && Wobjlen)
+		{
+			fprintf(stderr, "bast: Linker (object): Warning, no length directive in %s\n", fname);
 		}
 		else
 		{

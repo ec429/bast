@@ -1,10 +1,11 @@
 bast - ZX Basic tape compiler - readme
-	bast reads text files containing ZX Basic programs, and creates a tape file (.TAP format) with those programs saved on it
+	bast reads text files containing ZX Basic programs (and machine code hex dumps), and creates a tape file (.TAP format) with those programs saved on it
 
 Usage:
-	bast [[-b] <basfile>]* -t <tapfile> [--emu]
+	bast [[-b] <basfile>]* [-l <objfile>]* -t <tapfile> [--emu]
 
 Each <basfile> specifies a BASIC file to be saved onto the tape.  If <basfile> begins with a '-' you will need to use the -b specifier
+Each <objfile> specifies a BINARY object file to be saved onto the tape
 <tapfile> specifies the output TAP file
 --emu tells bast to open the created TAP file in an emulator once compilation has finished.  The command used is obtained by evaluating the environment variable $EMU and replacing each instance of the percent-sign '%' with the filename.  For instance, to use Phil Kendall's FUSE, you might type "export EMU=fuse\ %" (without quotes) at your shell prompt
 
@@ -25,3 +26,9 @@ Step 0: Director.  Directives are parsed and where possible acted upon
 Step 1: Tokeniser.  Each line of BASIC is split into a series of tokens (such as KEYWORDS (characters 0xA3 to 0xFF) and numbers (in Sinclair floating point notation: 0x0E + 4mantissa + 1exponent, or 0E 00 {00|FF}sign LSB MSB 00 for small integers))
 Step 2: Linker.  If a segment has no name, one will be generated for it of the form basN or binN where N starts from 0.  Renumbering is performed if directed.  Labels are translated
 Step 3: Output.  Whichever kind of output is required (objects, tape, etc), is produced
+
+Format of object files (.obj)
+Optional ORG directive of the form '@B1FF' where B1FF is some hex value (big endian!).  If the code is to be linked it must have an ORG; if it is ~linked (REM statements) it should not have, and any ORG it does have will be ignored
+Optional NAME directive of the form '#<name>'
+Optional length directive of the form '*009A' where 009a is some (big endian) hex value, the count of bytes
+Rows of eight bytes followed by '==' and a checksum byte, all in hex pairs, like '01 00 00 c9 FD CB 01 81 == 7E'.  The checksum byte is the XOR of all eight data bytes.  If the file ends in the middle of a line, pad to length with '$$' entries
