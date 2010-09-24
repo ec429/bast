@@ -19,7 +19,7 @@ OPTIONS CONTROLLING OPTIMISATION (Todo: when there are lots, group them into opt
 -O <opti-name>		Enables optimisation <opti-name>
 -O- <opti-name>		Disables optimisation <opti-name>
 	optimisations:
-	-O cut-numbers	The text parts of floating point numbers are not stored.  Since the BASIC interpreter on the Spectrum only reads the numeric part (the five bytes after the 0x0E), the textual representation need not be supplied.  However, it is then difficult to edit the program on the Spectrum and listings do not make sense (as all the numbers appear to be missing)
+	-O cut-numbers	The text parts of floating point numbers are replaced with '.', which is much shorter.  Since the BASIC interpreter on the Spectrum only reads the numeric part (the five bytes after the 0x0E), the textual representation need not be supplied.  However, it is then difficult to edit the program on the Spectrum and listings do not make sense (as all the numbers appear to be missing).  By default this option is off
 
 OPTIONS CONTROLLING WARNINGS
 -W all				Enables all warnings

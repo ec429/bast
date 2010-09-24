@@ -109,6 +109,8 @@ void addlabel(int *nlabels, label **labels, label lbl);
 void buildbas(bas_seg *bas, bool write);
 void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name);
 
+bool Ocutnumbers=false;
+
 int main(int argc, char *argv[])
 {
 	/* SET UP TABLES ETC */
@@ -151,6 +153,12 @@ int main(int argc, char *argv[])
 				state=2;
 			else if(strcmp(varg, "-W")==0)
 				state=3;
+			else if(strcmp(varg, "-W-")==0)
+				state=4;
+			else if(strcmp(varg, "-O")==0)
+				state=5;
+			else if(strcmp(varg, "-O-")==0)
+				state=6;
 			else
 			{
 				fprintf(stderr, "bast: No such option %s\n", varg);
@@ -159,6 +167,7 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
+			bool flag=false;
 			switch(state)
 			{
 				case 0:
@@ -176,9 +185,20 @@ int main(int argc, char *argv[])
 					state=0;
 				break;
 				case 3:
+					flag=true; // fallthrough
+				case 4:
 					if(strcmp("all", varg)==0)
 					{
 						state=0; // we have no warnings so far, so we'll just ignore -W all
+					}
+				break;
+				case 5:
+					flag=true; // fallthrough
+				case 6:
+					if(strcmp("cut-numbers", varg)==0)
+					{
+						Ocutnumbers=flag;
+						state=0;
 					}
 				break;
 				default:
@@ -573,8 +593,15 @@ int main(int argc, char *argv[])
 										fprintf(stderr, "%s%02x", data[i].data.bas.basic[j].tok[k].index>0?"+":"-", abs(data[i].data.bas.basic[j].tok[k].index));
 									}
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
-									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
-									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", labels[l].line+data[i].data.bas.basic[j].tok[k].index);
+									if(Ocutnumbers)
+									{
+										data[i].data.bas.basic[j].tok[k].data=strdup(".");
+									}
+									else
+									{
+										data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
+										sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", labels[l].line+data[i].data.bas.basic[j].tok[k].index);
+									}
 									fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
 									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].line+data[i].data.bas.basic[j].tok[k].index);
@@ -601,8 +628,15 @@ int main(int argc, char *argv[])
 										fprintf(stderr, "%s%02x", data[i].data.bas.basic[j].tok[k].index>0?"+":"-", abs(data[i].data.bas.basic[j].tok[k].index));
 									}
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
-									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
-									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
+									if(Ocutnumbers)
+									{
+										data[i].data.bas.basic[j].tok[k].data=strdup(".");
+									}
+									else
+									{
+										data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
+										sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
+									}
 									fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
 									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
@@ -1034,7 +1068,7 @@ token gettoken(char *data, int *bt)
 		*bt=strlen(data+1);
 		return(rv);
 	}
-	if(*data=='\\') // nul character, input as '\00' (can't use within strings)
+	if(*data=='\\') // nul character, input as '\00' (can't use within strings or REM)
 	{
 		if(data[1]=='0')
 		{
@@ -1184,9 +1218,16 @@ token gettoken(char *data, int *bt)
 	{
 		// 0x0E		ZX floating point number (full representation in token.data is (decimal), in token.data2 is (ZXfloat[5]))
 		rv.tok=TOKEN_ZXFLOAT;
-		rv.data=(char *)malloc(endptr-data+1);
-		strncpy(rv.data, data, endptr-data);
-		rv.data[endptr-data]=0;
+		if(Ocutnumbers)
+		{
+			rv.data=strdup(".");
+		}
+		else
+		{
+			rv.data=(char *)malloc(endptr-data+1);
+			strncpy(rv.data, data, endptr-data);
+			rv.data[endptr-data]=0;
+		}
 		rv.data2=(char *)malloc(5);
 		zxfloat(rv.data2, num);
 		*bt=strlen(endptr);
@@ -1415,7 +1456,7 @@ void buildbas(bas_seg *bas, bool write) // if write is false, we just compute of
 									{
 										append_char(&line, &ll, &li, TOKEN_PTRLBL);
 										int l;
-										for(l=0;l<10;l++)
+										for(l=0;l<(Ocutnumbers?6:10);l++)
 											append_char(&line, &ll, &li, 0);
 									}
 								}
@@ -1433,7 +1474,7 @@ void buildbas(bas_seg *bas, bool write) // if write is false, we just compute of
 									{
 										append_char(&line, &ll, &li, TOKEN_LABEL);
 										int l;
-										for(l=0;l<10;l++)
+										for(l=0;l<(Ocutnumbers?6:10);l++)
 											append_char(&line, &ll, &li, 0);
 									}
 								}
