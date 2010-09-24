@@ -568,12 +568,16 @@ int main(int argc, char *argv[])
 								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
 								{
 									fprintf(stderr, "bast: Linker: expanded %%%s", data[i].data.bas.basic[j].tok[k].data);
+									if(data[i].data.bas.basic[j].tok[k].index)
+									{
+										fprintf(stderr, "%s%02x", data[i].data.bas.basic[j].tok[k].index>0?"+":"-", abs(data[i].data.bas.basic[j].tok[k].index));
+									}
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
 									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
-									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", labels[l].line);
+									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", labels[l].line+data[i].data.bas.basic[j].tok[k].index);
 									fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
-									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].line);
+									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].line+data[i].data.bas.basic[j].tok[k].index);
 									break;
 								}
 							}
@@ -592,12 +596,16 @@ int main(int argc, char *argv[])
 								if((data[labels[l].seg].type==BASIC) && (strcmp(data[i].data.bas.basic[j].tok[k].data, labels[l].text)==0))
 								{
 									fprintf(stderr, "bast: Linker: expanded @%s", data[i].data.bas.basic[j].tok[k].data);
+									if(data[i].data.bas.basic[j].tok[k].index)
+									{
+										fprintf(stderr, "%s%02x", data[i].data.bas.basic[j].tok[k].index>0?"+":"-", abs(data[i].data.bas.basic[j].tok[k].index));
+									}
 									data[i].data.bas.basic[j].tok[k].tok=TOKEN_ZXFLOAT;
 									data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
-									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
+									sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
 									fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
-									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset);
+									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
 									break;
 								}
 							}
@@ -1054,11 +1062,59 @@ token gettoken(char *data, int *bt)
 		int sp=strspn(data+1, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
 		if(sp && data[sp+1])
 		{
-			rv.data=strdup(data+1);
-			rv.data[sp]=0;
-			rv.tok=TOKEN_LABEL;
-			*bt=strlen(data+sp+1);
-			return(rv);
+			bool partof=false; // is a partial offset a possibility here?
+			bool haveof=false; // do we have a full offset?
+			if(strchr("+-", data[sp+1]))
+			{
+				if(data[sp+2])
+				{
+					if(isxdigit(data[sp+2]))
+					{
+						if(data[sp+3])
+						{
+							if(isxdigit(data[sp+3]))
+							{
+								unsigned int val;
+								sscanf(data+sp+2, "%02x", &val);
+								if(data[sp+1]=='+')
+								{
+									if(val<=0x7F)
+									{
+										haveof=true;
+										rv.index=val;
+									}
+								}
+								else if(data[sp+1]=='-')
+								{
+									if(val<=0x80)
+									{
+										haveof=true;
+										rv.index=-val;
+									}
+								}
+							}
+						}
+						else
+						{
+							partof=true;
+						}
+					}
+				}
+				else
+				{
+					partof=true;
+				}
+			}
+			if(!partof)
+			{
+				rv.data=strdup(data+1);
+				rv.data[sp]=0;
+				rv.tok=TOKEN_LABEL;
+				if(!haveof)
+					rv.index=0;
+				*bt=strlen(data+sp+(haveof?4:1));
+				return(rv);
+			}
 		}
 	}
 	if((data[0]=='@') && isalpha(data[1]))
@@ -1066,11 +1122,59 @@ token gettoken(char *data, int *bt)
 		int sp=strspn(data+1, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
 		if(sp && data[sp+1])
 		{
-			rv.data=strdup(data+1);
-			rv.data[sp]=0;
-			rv.tok=TOKEN_PTRLBL;
-			*bt=strlen(data+sp+1);
-			return(rv);
+			bool partof=false; // is a partial offset a possibility here?
+			bool haveof=false; // do we have a full offset?
+			if(strchr("+-", data[sp+1]))
+			{
+				if(data[sp+2])
+				{
+					if(isxdigit(data[sp+2]))
+					{
+						if(data[sp+3])
+						{
+							if(isxdigit(data[sp+3]))
+							{
+								unsigned int val;
+								sscanf(data+sp+2, "%02x", &val);
+								if(data[sp+1]=='+')
+								{
+									if(val<=0x7F)
+									{
+										haveof=true;
+										rv.index=val;
+									}
+								}
+								else if(data[sp+1]=='-')
+								{
+									if(val<=0x80)
+									{
+										haveof=true;
+										rv.index=-val;
+									}
+								}
+							}
+						}
+						else
+						{
+							partof=true;
+						}
+					}
+				}
+				else
+				{
+					partof=true;
+				}
+			}
+			if(!partof)
+			{
+				rv.data=strdup(data+1);
+				rv.data[sp]=0;
+				rv.tok=TOKEN_PTRLBL;
+				if(!haveof)
+					rv.index=0;
+				*bt=strlen(data+sp+(haveof?4:1));
+				return(rv);
+			}
 		}
 	}
 	// test for number

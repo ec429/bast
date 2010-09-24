@@ -27,6 +27,7 @@ typedef struct
 	char *data; // ancillary data; used when parsing (not used in token definitions)
 	int dl; // data length; used for eg. ~link (becomes a REM, 0xEA, with data possibly containing NULs).  If -1, data2 points to a struct bin_seg
 	char *data2; // second ancillary data; used for eg. parsing ZXFLOATs
+	signed char index; // 'offset from offset' in LABELs and PTRLBLs, eg. @foo+2A
 }
 token;
 
