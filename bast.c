@@ -596,13 +596,14 @@ int main(int argc, char *argv[])
 									if(Ocutnumbers)
 									{
 										data[i].data.bas.basic[j].tok[k].data=strdup(".");
+										fprintf(stderr, " to %u (cut)\n", labels[l].line+data[i].data.bas.basic[j].tok[k].index);
 									}
 									else
 									{
 										data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
 										sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", labels[l].line+data[i].data.bas.basic[j].tok[k].index);
+										fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									}
-									fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
 									zxfloat(data[i].data.bas.basic[j].tok[k].data2, labels[l].line+data[i].data.bas.basic[j].tok[k].index);
 									break;
@@ -631,13 +632,14 @@ int main(int argc, char *argv[])
 									if(Ocutnumbers)
 									{
 										data[i].data.bas.basic[j].tok[k].data=strdup(".");
+										fprintf(stderr, " to %u (cut)\n", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
 									}
 									else
 									{
 										data[i].data.bas.basic[j].tok[k].data=(char *)malloc(6);
 										sprintf(data[i].data.bas.basic[j].tok[k].data, "%05u", (unsigned int)data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
+										fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									}
-									fprintf(stderr, " to %s\n", data[i].data.bas.basic[j].tok[k].data);
 									data[i].data.bas.basic[j].tok[k].data2=(char *)malloc(6);
 									zxfloat(data[i].data.bas.basic[j].tok[k].data2, data[labels[l].seg].data.bas.basic[labels[l].sline].offset+data[i].data.bas.basic[j].tok[k].index);
 									break;
