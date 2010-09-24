@@ -6,6 +6,8 @@
 \11\02*\11\07 line splicing (with \ at EOL) \
 \11\02*\11\07 \11\01inline colour codes\11\07 and other nonprinting characters (use \xx)\
 \11\02*\11\07 object code insertion into \11\06REM\11\07statements (and labels that     evaluate to pointers to the m/c)\
+\11\02*\11\07 indexed labels (useful for    \
+\11\06REM\11\07med object code)             \
 \11\02*\11\07 automatic line-numbering      \
 \8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f
 .start
