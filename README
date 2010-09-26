@@ -20,6 +20,8 @@ Other source file non-basic entities:
 	%<label>[+<index>]		Within an expression, is replaced by the line number of label <label>, which need not be in the same source file.  If <index> is present, it is added to the value when it is computed (<index> must be a hex pair and may range from +7F to -80)
 	@<label>[+<index>]		Within an expression, is replaced by the address of the start-of-text of the line labelled <label>.  If <index> is present, it is added to the value when it is computed (<index> must be a hex pair and may range from +7F to -80)
 	!link <objfile>			Expands to a REM statement containing the object code from <objfile> starting from the byte following the REM.  A typical design pattern is to give the line a label, and call the object code with 'usr @label+01'
+	!hex <hex>			Within an expression, is replaced by the decimal value of hexadecimal <hex> (ie. like BIN).  E.g. "!HEX 1FF" -> "511"
+	!oct <oct>			Within an expression, is replaced by the decimal value of octal <oct>.  E.g. "!OCT 307" -> "199"
 
 Compilation process
 Step 0: Director.  Directives are parsed and where possible acted upon

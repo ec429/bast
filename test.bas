@@ -11,7 +11,7 @@
 \11\02*\11\07 automatic line-numbering      \
 \8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f\8f
 .start
-	load "testbin" code 32768,4
+	load "testbin" code !HEX 8000,4
 	let i=0
 .loop
 	print i+1;".";tab 4;"Hello,\

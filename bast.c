@@ -1162,9 +1162,25 @@ void tokenise(basline *b, char **inbas, int fbas, int renum)
 					if(debug) fprintf(stderr, "\t= %02X\n", dat.tok);
 					if(dat.tok) // token is recognised?
 					{
+						if(Wsebasic&&((dat.tok<6)||(strchr("&\\~", dat.tok))))
+						{
+							fprintf(stderr, "bast: Tokeniser: Warning: Used SE BASIC token %02X\n\t"LOC"\n", dat.tok, LOCARG);
+						}
 						b->ntok++;
 						b->tok=(token *)realloc(b->tok, b->ntok*sizeof(token));
 						b->tok[b->ntok-1]=dat;
+						ptr+=tl-bt;
+						tl=0;
+						if(curtok) free(curtok);
+						curtok=NULL;
+						if(dat.tok==0xEA) // REM token; eat the rest of the line (as token.data)
+						{
+							while(isspace(*ptr))
+								ptr++;
+							b->tok[b->ntok-1].data=strdup(ptr);
+							b->tok[b->ntok-1].dl=0; // not an embedded-zeros style REM; those aren't allowed here
+							ptr+=strlen(ptr);
+						}
 					}
 					else
 					{
@@ -1359,7 +1375,70 @@ token gettoken(char *data, int *bt)
 		*bt=strlen(endptr);
 		return(rv);
 	}
-	// TODO: HEX, OCT
+	if(strncasecmp(data, "!HEX", 4)==0)
+	{
+		char *p=data+4;
+		while(isspace(*p))
+			p++;
+		char *q=p;
+		while(isxdigit(*q))
+			q++;
+		if((*q)&&(q>p)&&(q-p<=4))
+		{
+			char c=*q;
+			*q=0;
+			unsigned int val;
+			sscanf(p, "%x", &val);
+			fprintf(stderr, "bast: !HEX converted %s to %u\n", p, val);
+			*q=c;
+			*bt=strlen(q);
+			rv.tok=TOKEN_ZXFLOAT;
+			if(Ocutnumbers)
+			{
+				rv.data=strdup(".");
+			}
+			else
+			{
+				rv.data=(char *)malloc(6);
+				sprintf(rv.data, "%u", val);
+			}
+			rv.data2=(char *)malloc(5);
+			zxfloat(rv.data2, val);
+			return(rv);
+		}
+	}
+	if(strncasecmp(data, "!OCT", 4)==0)
+	{
+		char *p=data+4;
+		while(isspace(*p))
+			p++;
+		char *q=p;
+		while(strchr("01234567", *q))
+			q++;
+		if((*q)&&(q>p)&&(q-p<=5))
+		{
+			char c=*q;
+			*q=0;
+			unsigned int val;
+			sscanf(p, "%o", &val);
+			fprintf(stderr, "bast: !OCT converted %s to %u\n", p, val);
+			*q=c;
+			*bt=strlen(q);
+			rv.tok=TOKEN_ZXFLOAT;
+			if(Ocutnumbers)
+			{
+				rv.data=strdup(".");
+			}
+			else
+			{
+				rv.data=(char *)malloc(6);
+				sprintf(rv.data, "%u", val);
+			}
+			rv.data2=(char *)malloc(5);
+			zxfloat(rv.data2, val);
+			return(rv);
+		}
+	}
 	int i,j=-1;
 	for(i=0;i<ntokens;i++)
 	{
@@ -1390,7 +1469,7 @@ token gettoken(char *data, int *bt)
 		*bt=0;
 		return(rv);
 	}
-	if((!isalpha(data[strlen(data)-1])) && (strcasecmp(data, "GO ")) && (strcasecmp(data, "ON "))) // "GO " is the start of GO TO or GO SUB; you can't have a variable called 'go'.  "ON " may be the start of an SE BASIC ON ERR, so you can't have a variable called 'on', either
+	if(!isalpha(data[strlen(data)-1]) && !isspace(data[strlen(data)-1])) // "GO " may be the start of GO TO or GO SUB, "ON " may be the start of an SE BASIC ON ERR.  For safety's sake, we don't accept a variable name until we know it can't be anything else
 	{
 		// assume it's a variable
 		int i=0,s=0;
