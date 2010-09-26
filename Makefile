@@ -4,6 +4,7 @@ PREFIX ?= /usr/local
 CC ?= gcc
 CFLAGS ?= -Wall
 AWK ?= awk
+VERSION:="`./mkversion`"
 
 all: bast test.tap
 
@@ -12,6 +13,9 @@ install: bast
 
 bast: bast.c tokens.o tokens.h version.h
 	$(CC) $(CFLAGS) -o bast bast.c tokens.o -lm
+
+mkversion: mkversion.c version.h
+	$(CC) $(CFLAGS) -o mkversion mkversion.c
 
 version.h: version
 	./gitversion
@@ -35,3 +39,13 @@ addtokens.c: tokens mkaddtokens.awk
 
 test.tap: bast test.bas
 	./bast -b test.bas -l test.obj -t test.tap -W all -O cut-numbers
+
+dist: all mkversion
+	-mkdir bast_$(VERSION)
+	for p in *; do cp $$p bast_$(VERSION)/$$p; done;
+	-rm bast_$(VERSION)/*.tap
+	-rm bast_$(VERSION)/*.tar.gz
+	tar -cvvf bast_$(VERSION).tar bast_$(VERSION)
+	gzip bast_$(VERSION).tar
+	-rm -r bast_$(VERSION)
+
