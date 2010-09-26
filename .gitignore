@@ -5,3 +5,4 @@ version
 version.h
 *~
 *.tap
+*.tar.gz

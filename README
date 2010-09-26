@@ -2,12 +2,22 @@ bast - ZX Basic tape compiler - readme
 	bast reads text files containing ZX Basic programs (and machine code hex dumps), and creates a tape file (.TAP format) with those programs saved on it
 
 Usage:
-	bast [[-b] <basfile>]* [-l <objfile>]* -t <tapfile> [--emu]
+	bast [[-b] <basfile>]* [-l <objfile>]* [-O[-] <optim>]* [-W[-] <warning>]* -t <tapfile> [--emu]
 
 Each <basfile> specifies a BASIC file to be saved onto the tape.  If <basfile> begins with a '-' you will need to use the -b specifier
 Each <objfile> specifies a BINARY object file to be saved onto the tape
+Each <optim> turns on an optimisation (-O- <optim> turns <optim> off).  See 'Optimisations' below.
+Each <warning> turns on a warning (-W- <warning> turns <warning> off).  See 'Warnings' below.
 <tapfile> specifies the output TAP file
 --emu tells bast to open the created TAP file in an emulator once compilation has finished.  The command used is obtained by evaluating the environment variable $EMU and replacing each instance of the percent-sign '%' with the filename.  For instance, to use Phil Kendall's FUSE, you might type "export EMU=fuse\ %" (without quotes) at your shell prompt
+
+Optimisations:
+-O cut-numbers		The text parts of floating point numbers are replaced with '.', which is much shorter.  Since the BASIC interpreter on the Spectrum only reads the numeric part (the five bytes after the 0x0E), the textual representation need not be supplied.  However, it is then difficult to edit the program on the Spectrum and listings do not make sense (as all the numbers appear to be missing).  Off by default
+
+Warnings:
+-W all				Enables all warnings
+-W object-length	Warns if an object file is missing a length directive (*xxxx).  On by default
+-W se-basic			Warns if SE BASIC tokens have been used.  On by default
 
 Source file directives:
 	#pragma <pr> [<args>]	#pragma directives must precede all other directives and all source lines; only blank lines may precede a #pragma.  They must also be at start-of-line (ie. they may not be preceded by spaces or tabs)
