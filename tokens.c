@@ -30,8 +30,9 @@ void mktoktbl(void)
 	addtokd(";", ';');
 	addtokd(":", ':');
 	addtokd("#", '#');
-	// SE BASIC functions: &, ~ (not \\ as we use \\xx for char literals)
+	// SE BASIC functions: &, ~, \\->\ (can't use \ as \xx is a hex char literal)
 	addtokd("&", '&');
+	addtokd("\\\\", '\\');
 	addtokd("~", '~');
 }
 
