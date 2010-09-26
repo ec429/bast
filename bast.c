@@ -110,8 +110,9 @@ void buildbas(bas_seg *bas, bool write);
 void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name);
 
 bool debug=false;
-bool Wobjlen=true;
+bool Wobjlen=false;
 bool Wsebasic=true;
+bool Wembeddednewline=true;
 bool Ocutnumbers=false;
 
 int main(int argc, char *argv[])
@@ -223,6 +224,11 @@ int main(int argc, char *argv[])
 						Wsebasic=flag;
 						state=0;
 					}
+					else if(strcmp("embedded-newline", varg)==0)
+					{
+						Wembeddednewline=flag;
+						state=0;
+					}
 				break;
 				case 5:
 					flag=true; // fallthrough
@@ -321,6 +327,10 @@ int main(int argc, char *argv[])
 						line=splice;
 						strcat(splice, second);
 						free(second);
+					}
+					if(Wembeddednewline && strchr(line, '\x0D')) // 0x0D is newline in ZX BASIC
+					{
+						fprintf(stderr, "bast: Warning: embedded newline (\\0D) in ZX Basic line\n\t"LOC"\n", LOCARG);
 					}
 					if(addbasline(&curr->data.bas.nlines, &curr->data.bas.basic, line))
 					{

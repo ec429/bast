@@ -26,8 +26,9 @@ OPTIONS CONTROLLING WARNINGS
 -W all				Enables all warnings
 -W- all				Disables all warnings (generally -W- <warning> disables whatever -W <warning> enables)
 	warnings:
--W object-length	Warns if an object file is missing a length directive (*xxxx).  On by default
+-W object-length	Warns if an object file is missing a length directive (*xxxx).  Off by default
 -W se-basic			Warns if SE BASIC tokens have been used.  On by default
+-W embedded-newline	Warns if a newline literal has been embedded in a line with a \xx escape, as this will likely confuse the Spectrum.  On by default
 
 OPTIONS CONTROLLING THE TYPE OF OUTPUT
 -o <outobj>			Strips out all BASIC, leaving only any machine code from -a, -l, #asm, or #link (but NOT #rasm or #rlink as these appear in the BASIC), and writes the result into an object file

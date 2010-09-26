@@ -16,8 +16,9 @@ Optimisations:
 
 Warnings:
 -W all				Enables all warnings
--W object-length	Warns if an object file is missing a length directive (*xxxx).  On by default
+-W object-length	Warns if an object file is missing a length directive (*xxxx).  Off by default
 -W se-basic			Warns if SE BASIC tokens have been used.  On by default
+-W embedded-newline	Warns if a newline literal has been embedded in a line with a \xx escape, as this will likely confuse the Spectrum.  On by default
 
 Source file directives:
 	#pragma <pr> [<args>]	#pragma directives must precede all other directives and all source lines; only blank lines may precede a #pragma.  They must also be at start-of-line (ie. they may not be preceded by spaces or tabs)
