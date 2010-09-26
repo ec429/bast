@@ -9,14 +9,14 @@
 
 #include <stdlib.h>
 
-#define TOKEN_VAR		0x01
-#define TOKEN_VARSTR	0x02
-#define TOKEN_NONPRINT	0x03
 #define TOKEN_ZXFLOAT	0x0E
 #define TOKEN_STRING	0x0F
+#define TOKEN_VAR		0x11
+#define TOKEN_VARSTR	0x12
+#define TOKEN_NONPRINT	0x13
+#define TOKEN_LABEL		0x14
+#define TOKEN_PTRLBL	0x15
 #define TOKEN_RLINK		0x18
-#define TOKEN_LABEL		0x04
-#define TOKEN_PTRLBL	0x05
 
 int ntokens;
 typedef struct

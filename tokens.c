@@ -30,6 +30,9 @@ void mktoktbl(void)
 	addtokd(";", ';');
 	addtokd(":", ':');
 	addtokd("#", '#');
+	// SE BASIC functions: &, ~ (not \\ as we use \\xx for char literals)
+	addtokd("&", '&');
+	addtokd("~", '~');
 }
 
 void addtokd(char *text, unsigned char tok)

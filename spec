@@ -26,6 +26,7 @@ OPTIONS CONTROLLING WARNINGS
 -W- all				Disables all warnings (generally -W- <warning> disables whatever -W <warning> enables)
 	warnings:
 -W object-length	Warns if an object file is missing a length directive (*xxxx).  On by default
+-W se-basic			Warns if SE BASIC tokens have been used.  On by default
 
 OPTIONS CONTROLLING THE TYPE OF OUTPUT
 -o <outobj>			Strips out all BASIC, leaving only any machine code from -a, -l, #asm, or #link (but NOT #rasm or #rlink as these appear in the BASIC), and writes the result into an object file
@@ -47,8 +48,8 @@ SOURCE FILE DIRECTIVES (BAS)
 #import <impfile>		Import the labels from <impfile> (another source file); you should only use those labels if that other file is known to be in core
 #link <linkobj>			If eg. TAP output is produced, compile in <linkobj> (a machine code object file, found by searching the link path)
 #asm		#endasm		Delimits a block of Z80 assembler, which will become a BINARY segment as though it had been linked.  The #asm block may contain its own directives which will be treated as though the #asm block had appeared in its own file (eg. it may have #pragmas at the start)
-[<num>] ~link			As #link but compiles into a BASIC REM statement instead of a BINARY segment.  The code linked should be relocatable.  <num> is the linenumber (technically ~link is a statement).  If the binary has a Name, it is ignored
-[<num>] ~asm			As #asm but compiles into a BASIC REM statement instead of a BINARY segment.  The code within should be relocatable.  <num> is the linenumber (technically ~asm is a statement).  If the binary has a Name (eg. from #pragma name), it is ignored.  Block is closed with ~endasm
+[<num>] !link			As #link but compiles into a BASIC REM statement instead of a BINARY segment.  The code linked should be relocatable.  <num> is the linenumber (technically !link is a statement).  If the binary has a Name, it is ignored
+[<num>] !asm			As #asm but compiles into a BASIC REM statement instead of a BINARY segment.  The code within should be relocatable.  <num> is the linenumber (technically !asm is a statement).  If the binary has a Name (eg. from #pragma name), it is ignored.  Block is closed with !endasm
 
 OTHER SOURCE FILE NON-BASIC ENTITIES
 .<label>				A label.  <label> must match "[[:alpha:]][[:alnum:]_]*"; that is, it must start with a letter (either case) and consist of letters, underscores and numbers only.  Labels must occur at the start of line; that is, they may not be preceded by whitespace.  They should be followed by a newline
@@ -60,9 +61,9 @@ OTHER SOURCE FILE NON-BASIC ENTITIES
 --------------------------------------
 
 COMPILATION PROCESS
-Step 0: Director.  Directives are parsed and where possible acted upon (eg #include files are included).  Any #[r]asm/#endasm blocks are separated out for the assembler.  The assembler is fork()ed and sets to work on producing the object code (assuming there is any work for it to do)
+Step 0: Director.  Directives are parsed and where possible acted upon (eg #include files are included).  Any (#/!)(asm/endasm) blocks are separated out for the assembler.  The assembler is fork()ed and sets to work on producing the object code (assuming there is any work for it to do)
 Step 1: Tokeniser.  Each line of BASIC is split into a series of tokens (such as KEYWORDS (characters 0xA3 to 0xFF) and numbers (in Sinclair floating point notation: 0x0E + 4mantissa + 1exponent, or 0E 00 {00|FF}sign LSB MSB 00 for small integers)).  Renumbering is performed if directed
-Step 2: Linker.  If there were any ~link or ~asm sections, wait until they are assembled (~asm only) and insert them into REM statements in the BASIC segment; if there were any -l, #link or #asm sections, wait until they are assembled (#asm only) and then add them (as BINARY segments) to the compilation.  They will appear in the virtual tape in the order in which they were encountered (first the -ls, then the #s in the order they appear in the BASIC source files).  If a segment has no name, one will be generated for it of the form basN or binN where N starts from 0.  It is during this step that labels are translated
+Step 2: Linker.  If there were any !link or !asm sections, wait until they are assembled (!asm only) and insert them into REM statements in the BASIC segment; if there were any -l, #link or #asm sections, wait until they are assembled (#asm only) and then add them (as BINARY segments) to the compilation.  They will appear in the virtual tape in the order in which they were encountered (first the -ls, then the #s in the order they appear in the BASIC source files).  If a segment has no name, one will be generated for it of the form basN or binN where N starts from 0.  It is during this step that labels are translated
 Step 3: Output.  Produce whichever kind of output is required (objects, tape, etc)
 
 --------------------------------------

@@ -1,3 +1,9 @@
+addtokd("DELETE", 0x00);
+addtokd("EDIT", 0x01);
+addtokd("RENUM", 0x02);
+addtokd("PALETTE", 0x03);
+addtokd("SOUND", 0x04);
+addtokd("ON ERR", 0x05);
 addtokd("SPECTRUM", 0xA3);
 addtokd("PLAY", 0xA4);
 addtokd("RND", 0xA5);

@@ -111,6 +111,7 @@ void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name);
 
 bool debug=false;
 bool Wobjlen=true;
+bool Wsebasic=true;
 bool Ocutnumbers=false;
 
 int main(int argc, char *argv[])
@@ -215,6 +216,11 @@ int main(int argc, char *argv[])
 					else if(strcmp("object-length", varg)==0)
 					{
 						Wobjlen=flag;
+						state=0;
+					}
+					else if(strcmp("se-basic", varg)==0)
+					{
+						Wsebasic=flag;
 						state=0;
 					}
 				break;
@@ -476,7 +482,7 @@ int main(int argc, char *argv[])
 	/* END: TOKENISE BASIC SEGMENTS */
 	
 	/* LINKER & LABELS */
-	// PASS 1: Find labels, renumber labelled BASIC sources, load in ~links as attached bin_segs
+	// PASS 1: Find labels, renumber labelled BASIC sources, load in !links as attached bin_segs
 	int nlabels=0;
 	label * labels=NULL;
 	int i;
@@ -1123,6 +1129,10 @@ void tokenise(basline *b, char **inbas, int fbas, int renum)
 						if(debug) fprintf(stderr, "\t= %02X\n", dat.tok);
 						if(dat.tok) // token is recognised?
 						{
+							if(Wsebasic&&((dat.tok<6)||(strchr("&\\~", dat.tok))))
+							{
+								fprintf(stderr, "bast: Tokeniser: Warning: Used SE BASIC token %02X\n\t"LOC"\n", dat.tok, LOCARG);
+							}
 							b->ntok++;
 							b->tok=(token *)realloc(b->tok, b->ntok*sizeof(token));
 							b->tok[b->ntok-1]=dat;
@@ -1370,17 +1380,17 @@ token gettoken(char *data, int *bt)
 			return(rv);
 		}
 	}
-	if((strncasecmp(data, "~link", 5)==0) && (data[strlen(data)-1]=='\n'))
+	if((strncasecmp(data, "!link", 5)==0) && (data[strlen(data)-1]=='\n'))
 	{
 		rv.tok=TOKEN_RLINK;
 		char *p=data+5;
 		while(isspace(*p)) p++;
 		rv.data=strdup(p);
-		rv.data[strlen(data)-7]=0;
+		rv.data[strlen(p)-1]=0;
 		*bt=0;
 		return(rv);
 	}
-	if((!isalpha(data[strlen(data)-1])) && (strcasecmp(data, "GO "))) // "GO " is the start of GO TO or GO SUB; you can't have a variable called 'go'.
+	if((!isalpha(data[strlen(data)-1])) && (strcasecmp(data, "GO ")) && (strcasecmp(data, "ON "))) // "GO " is the start of GO TO or GO SUB; you can't have a variable called 'go'.  "ON " may be the start of an SE BASIC ON ERR, so you can't have a variable called 'on', either
 	{
 		// assume it's a variable
 		int i=0,s=0;
@@ -1489,7 +1499,7 @@ void buildbas(bas_seg *bas, bool write) // if write is false, we just compute of
 					append_char(&line, &ll, &li, bas->basic[i].tok[j].tok);
 					if(bas->basic[i].tok[j].tok==0xEA) // REM token, rest-of-line in token.data
 					{
-						if(bas->basic[i].tok[j].dl)
+						if(bas->basic[i].tok[j].dl) // has embedded \0s (is an object file)
 						{
 							int ri;
 							for(ri=0;ri<bas->basic[i].tok[j].dl;ri++)
@@ -1497,7 +1507,19 @@ void buildbas(bas_seg *bas, bool write) // if write is false, we just compute of
 						}
 						else
 						{
-							append_str(&line, &ll, &li, bas->basic[i].tok[j].data);
+							char *p=bas->basic[i].tok[j].data;
+							while(*p)
+							{
+								if((*p=='\\')&&(p[1]=='0')) // handle \\0 -> \0
+								{
+									append_char(&line, &ll, &li, 0);
+									p+=2;
+								}
+								else
+								{
+									append_char(&line, &ll, &li, *p++);
+								}
+							}
 						}
 					}
 				}
@@ -1530,7 +1552,19 @@ void buildbas(bas_seg *bas, bool write) // if write is false, we just compute of
 							break;
 							case TOKEN_STRING:
 								append_char(&line, &ll, &li, '"');
-								append_str(&line, &ll, &li, bas->basic[i].tok[j].data);
+								char *p=bas->basic[i].tok[j].data;
+								while(*p)
+								{
+									if((*p=='\\')&&(p[1]=='0')) // handle \\0 -> \0
+									{
+										append_char(&line, &ll, &li, 0);
+										p+=2;
+									}
+									else
+									{
+										append_char(&line, &ll, &li, *p++);
+									}
+								}
 								append_char(&line, &ll, &li, '"');
 							break;
 							case TOKEN_RLINK:

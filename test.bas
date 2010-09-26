@@ -19,5 +19,5 @@
 	let i=i+1
 	if i<10 then goto %loop
 .object
-	~link test.obj
+	!link test.obj
 	print \10\02 ink 2\10\00; usr usr @object+01

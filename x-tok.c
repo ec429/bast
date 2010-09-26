@@ -11,8 +11,17 @@
 
 int main(void)
 {
+	// SE BASIC: DELETE, EDIT, RENUM, PALETTE, SOUND, and ON ERR - 0x00 to 0x05
+	printf("DELETE\t0x00\n");
+	printf("EDIT\t0x01\n");
+	printf("RENUM\t0x02\n");
+	printf("PALETTE\t0x03\n");
+	printf("SOUND\t0x04\n");
+	printf("ON ERR\t0x05\n");
+	// +3 BASIC: SPECTRUM and PLAY - 0xA3 to 0xA4
 	printf("SPECTRUM\t0xA3\n");
 	printf("PLAY\t0xA4\n");
+	// 48 BASIC: extract from the ROM - 0xA5 to 0xFF
 	getchar();
 	unsigned char tok=0xA5;
 	char curr[80];
