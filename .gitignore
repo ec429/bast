@@ -1,5 +1,6 @@
 bast
 x-tok
+mkversion
 *.o
 version
 version.h
