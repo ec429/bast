@@ -1,6 +1,7 @@
 bast
 x-tok
 mkversion
+objify
 *.o
 version
 version.h

@@ -6,10 +6,11 @@ CFLAGS ?= -Wall
 AWK ?= awk
 VERSION:="`./mkversion`"
 
-all: bast test.tap
+all: bast objify test.tap
 
-install: bast
+install: bast objify
 	install -D bast $(PREFIX)/bin/bast
+	install -D objify $(PREFIX)/bin/objify
 
 bast: bast.c tokens.o tokens.h version.h
 	$(CC) $(CFLAGS) -o bast bast.c tokens.o -lm
@@ -28,11 +29,11 @@ tokens.o: tokens.c tokens.h addtokens.c
 tokens: toktbl x-tok
 	./x-tok < toktbl > tokens
 
-x-tok: x-tok.c
-	$(CC) $(CFLAGS) -o x-tok x-tok.c
-
 addtokens.c: tokens mkaddtokens.awk
 	$(AWK) -f mkaddtokens.awk < tokens > addtokens.c
+
+%: %.c
+	$(CC) $(CFLAGS) -o $@ $<
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -o $@ -c $<
