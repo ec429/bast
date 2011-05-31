@@ -2,7 +2,7 @@
 
 PREFIX ?= /usr/local
 CC ?= gcc
-CFLAGS ?= -Wall
+CFLAGS ?= -Wall -Wextra -pedantic --std=gnu99 -Werror
 AWK ?= awk
 VERSION:="`./mkversion`"
 

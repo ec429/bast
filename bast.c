@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
 										char *pline=strtok(NULL, "");
 										if(pline)
 										{
-											int val;
+											unsigned int val;
 											if(sscanf(pline, "%u", &val)==1)
 											{
 												curr->data.bas.line=val;
@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
 										char *arg=strtok(NULL, " ");
 										while(arg)
 										{
-											int val=0;
+											unsigned int val=0;
 											if(*arg)
 												sscanf(arg+1, "%u", &val);
 											switch(*arg)
@@ -418,6 +418,10 @@ int main(int argc, char *argv[])
 									fprintf(stderr, "bast: #pragma without identifier\n\t"LOC"\n", LOCARG);
 									return(EXIT_FAILURE);
 								}
+							}
+							else if(strcmp(cmd, "##")==0)
+							{
+								// comment, ignore
 							}
 							else
 							{
@@ -522,7 +526,7 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "bast: Renumber: BASIC segment %s, start %u, spacing %u, end <=%u\n", data[i].name, num, dnum, end);
 				}
 				int dl;
-				init_char(&data[i].data.bas.block, &dl, &data[i].data.bas.blen);
+				init_char(&data[i].data.bas.block, &dl, (int *)&data[i].data.bas.blen);
 				int last=0;
 				int j;
 				for(j=0;j<data[i].data.bas.nlines;j++)
@@ -1109,7 +1113,7 @@ void tokenise(basline *b, char **inbas, int fbas, int renum)
 				char *p=strchr(ptr, ' ');
 				if(p)
 				{
-					sscanf(ptr, "%u", &b->number);
+					sscanf(ptr, "%d", &b->number);
 					ptr=p+1;
 				}
 			}
@@ -1661,7 +1665,7 @@ void buildbas(bas_seg *bas, bool write) // if write is false, we just compute of
 								{
 									if(write)
 									{
-										append_char(&line, &ll, &li, 0xEA);
+										append_char(&line, &ll, &li, (signed char)0xEA);
 										int l;
 										for(l=0;l<((bin_seg *)bas->basic[i].tok[j].data2)->nbytes;l++)
 											append_char(&line, &ll, &li, ((bin_seg *)bas->basic[i].tok[j].data2)->bytes[l].byte);
@@ -1754,7 +1758,7 @@ void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name)
 			{
 				if(*line=='@')
 				{
-					sscanf(line, "@%04x", &buf->org);
+					sscanf(line, "@%04x", (unsigned int *)&buf->org);
 				}
 				else if(*line=='#')
 				{
@@ -1763,7 +1767,7 @@ void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name)
 				}
 				else if(*line=='*')
 				{
-					sscanf(line, "*%04x", &len);
+					sscanf(line, "*%04x", (unsigned int *)&len);
 				}
 				else
 				{

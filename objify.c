@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 		printf("@%04X\n", org);
 	if(len>=0)
 		printf("*%04X\n", len);
-	unsigned int pos=0;
+	int pos=0;
 	unsigned char cksum=0;
 	while((len<0)||(pos<len))
 	{
