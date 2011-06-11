@@ -76,9 +76,12 @@ int main(int argc, char *argv[])
 		{
 			if(len<0)
 			{
-				while(pos++%8)
-					printf("$$ ");
-				printf("== %02X\n", cksum);
+				if(pos%8)
+				{
+					while(pos++%8)
+						printf("$$ ");
+					printf("== %02X\n", cksum);
+				}
 				return(EXIT_SUCCESS);
 			}
 			fprintf(stderr, "objify: unexpected EOF (offset %04X, expected-length %04X)\n", pos, len);

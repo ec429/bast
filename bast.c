@@ -111,6 +111,7 @@ void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name);
 
 bool debug=false;
 bool Wobjlen=false;
+bool Wobjsum=true;
 bool Wsebasic=true;
 bool Wembeddednewline=true;
 bool Ocutnumbers=false;
@@ -217,6 +218,11 @@ int main(int argc, char *argv[])
 					else if(strcmp("object-length", varg)==0)
 					{
 						Wobjlen=flag;
+						state=0;
+					}
+					else if(strcmp("object-checksum", varg)==0)
+					{
+						Wobjsum=flag;
 						state=0;
 					}
 					else if(strcmp("se-basic", varg)==0)
@@ -1744,6 +1750,7 @@ void buildbas(bas_seg *bas, bool write) // if write is false, we just compute of
 
 void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name)
 {
+	bool warned=false;
 	if(buf)
 	{
 		buf->nbytes=0;
@@ -1777,6 +1784,12 @@ void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name)
 					int col;
 					for(col=0;col<8;col++)
 					{
+						if(!ent)
+						{
+							fprintf(stderr, "bast: Linker (object): Too few pairs on line\n\t%s:%u\n", fname, i);
+							err=true;
+							break;
+						}
 						if(isxdigit(ent[0])&&isxdigit(ent[1]))
 						{
 							unsigned int n;
@@ -1805,33 +1818,46 @@ void bin_load(char *fname, FILE *fp, bin_seg * buf, char **name)
 						}
 						ent=strtok(NULL, " \t");
 					}
-					if(ent&&(ent[0]=='=')&&(ent[1]=='='))
+					if(ent)
 					{
-						ent=strtok(NULL, "");
-					}
-					else
-					{
-						fprintf(stderr, "bast: Linker (object): Bad pair %s\n\t%s:%u\n", ent, fname, i);
-						err=true;
-					}
-					if(isxdigit(ent[0])&&isxdigit(ent[1]))
-					{
-						unsigned int n;
-						sscanf(ent, "%02x", &n);
-						if(cksum!=n)
+						if((ent[0]=='=')&&(ent[1]=='='))
 						{
-							fprintf(stderr, "bast: Linker (object): Checksum failed: got %02x, expected %02x\n\t%s:%u\n", n, cksum, fname, i);
-							err=true;
+							ent=strtok(NULL, "");
+							if(ent&&isxdigit(ent[0])&&isxdigit(ent[1]))
+							{
+								unsigned int n;
+								sscanf(ent, "%02x", &n);
+								if(cksum!=n)
+								{
+									fprintf(stderr, "bast: Linker (object): Checksum failed: got %02x, expected %02x\n\t%s:%u\n", n, cksum, fname, i);
+									err=true;
+								}
+							}
+							else
+							{
+								fprintf(stderr, "bast: Linker (object): Bad pair (checksum) %s\n\t%s:%u\n", ent, fname, i);
+								err=true;
+							}
 						}
 						else
 						{
-							col=0;
-							while((col<8) && row[col].type!=BNONE)
-							{
-								buf->nbytes++;
-								buf->bytes=(bin_byte *)realloc(buf->bytes, buf->nbytes*sizeof(bin_byte));
-								buf->bytes[buf->nbytes-1]=row[col++];
-							}
+							fprintf(stderr, "bast: Linker (object): Bad pair (==) %s\n\t%s:%u\n", ent, fname, i);
+							err=true;
+						}
+					}
+					else if(Wobjsum&&!warned)
+					{
+						fprintf(stderr, "bast: Linker (object): Warning, checksum missing\n\t%s:%u\n", fname, i);
+						warned=true;
+					}
+					if(!err)
+					{
+						col=0;
+						while((col<8) && row[col].type!=BNONE)
+						{
+							buf->nbytes++;
+							buf->bytes=(bin_byte *)realloc(buf->bytes, buf->nbytes*sizeof(bin_byte));
+							buf->bytes[buf->nbytes-1]=row[col++];
 						}
 					}
 				}

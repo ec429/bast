@@ -17,6 +17,7 @@ Optimisations:
 Warnings:
 -W all				Enables all warnings
 -W object-length	Warns if an object file is missing a length directive (*xxxx).  Off by default
+-W object-checksum	Warns if an object file is missing a checksum (== xx); only the first missing checksum in each file is reported.  On by default
 -W se-basic			Warns if SE BASIC tokens have been used.  On by default
 -W embedded-newline	Warns if a newline literal has been embedded in a line with a \xx escape, as this will likely confuse the Spectrum.  On by default
 
@@ -41,7 +42,7 @@ Step 2: Linker.  If a segment has no name, one will be generated for it of the f
 Step 3: Output.  Whichever kind of output is required (objects, tape, etc), is produced
 
 Format of object files (.obj)
-Optional ORG directive of the form '@B1FF' where B1FF is some hex value (big endian!).  If the code is to be linked it must have an ORG; if it is ~linked (REM statements) it should not have, and any ORG it does have will be ignored
+Optional ORG directive of the form '@B1FF' where B1FF is some hex value (big endian!).  If the code is to be linked it must have an ORG; if it is !linked (REM statements) it should not have, and any ORG it does have will be ignored
 Optional NAME directive of the form '#<name>'
 Optional length directive of the form '*009A' where 009a is some (big endian) hex value, the count of bytes
 Rows of eight bytes followed by '==' and a checksum byte, all in hex pairs, like '01 00 00 c9 FD CB 01 81 == 7E'.  The checksum byte is the XOR of all eight data bytes.  If the file ends in the middle of a line, pad to length with '$$' entries

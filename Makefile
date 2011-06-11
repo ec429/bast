@@ -2,7 +2,7 @@
 
 PREFIX ?= /usr/local
 CC ?= gcc
-CFLAGS ?= -Wall -Wextra -pedantic --std=gnu99 -Werror
+CFLAGS ?= -Wall -Wextra -pedantic --std=gnu99 -Werror -g
 AWK ?= awk
 VERSION:="`./mkversion`"
 
@@ -38,7 +38,7 @@ addtokens.c: tokens mkaddtokens.awk
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-test.tap: bast test.bas
+test.tap: bast test.bas test.obj
 	./bast -b test.bas -l test.obj -t test.tap -W all -O cut-numbers
 
 dist: all mkversion
