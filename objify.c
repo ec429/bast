@@ -16,11 +16,12 @@
 int main(int argc, char *argv[])
 {
 	signed int len=-1, org=-1;
+	const char *name=NULL;
 	int arg;
 	int state=0;
 	for(arg=1;arg<argc;arg++)
 	{
-		char *varg=argv[arg];
+		const char *varg=argv[arg];
 		if(varg[0]=='-')
 		{
 			if(strcmp(varg, "-l")==0)
@@ -37,6 +38,9 @@ int main(int argc, char *argv[])
 		sscanf(varg, "%d", &num);
 		switch(state)
 		{
+			case 0:
+				name=varg;
+			break;
 			case 1:
 				if(num>=0)
 				{
@@ -63,6 +67,8 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
+	if(name)
+		printf("#%s\n", name);
 	if(org>=0)
 		printf("@%04X\n", org);
 	if(len>=0)
